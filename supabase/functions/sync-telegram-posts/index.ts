@@ -52,6 +52,41 @@ serve(async (req) => {
       );
     }
 
+    console.log(`Attempting to sync channel: ${channelId}`);
+
+    // Сначала проверим, что бот может получить информацию о себе
+    const botInfoUrl = `https://api.telegram.org/bot${telegramBotToken}/getMe`;
+    const botInfoResponse = await fetch(botInfoUrl);
+    const botInfo = await botInfoResponse.json();
+    
+    if (!botInfo.ok) {
+      console.error('Bot token is invalid:', botInfo);
+      return new Response(
+        JSON.stringify({ error: `Invalid bot token: ${botInfo.description}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`Bot info: ${botInfo.result.username} (${botInfo.result.first_name})`);
+
+    // Попробуем получить информацию о канале
+    const chatInfoUrl = `https://api.telegram.org/bot${telegramBotToken}/getChat`;
+    const chatInfoResponse = await fetch(`${chatInfoUrl}?chat_id=${encodeURIComponent(channelId)}`);
+    const chatInfo = await chatInfoResponse.json();
+    
+    if (!chatInfo.ok) {
+      console.error('Cannot access channel:', chatInfo);
+      return new Response(
+        JSON.stringify({ 
+          error: `Cannot access channel: ${chatInfo.description}. Make sure the bot is added to the channel as an administrator.`,
+          details: chatInfo 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`Channel info: ${chatInfo.result.title} (${chatInfo.result.type})`);
+
     // Получаем существующие разделы и типы материалов
     const { data: sections } = await supabase.from('sections').select('*');
     const { data: materialTypes } = await supabase.from('material_types').select('*');
@@ -69,40 +104,77 @@ serve(async (req) => {
     let offset = 0;
     if (lastPost) {
       offset = lastPost.telegram_message_id + 1;
+      console.log(`Starting from message ID: ${offset} (last saved: ${lastPost.telegram_message_id})`);
+    } else {
+      console.log('No existing posts found, starting from the beginning');
     }
 
-    console.log(`Starting from message ID: ${offset}`);
-
-    // Получаем обновления из канала
+    // Получаем обновления из канала с расширенными параметрами
     const telegramUrl = `https://api.telegram.org/bot${telegramBotToken}/getUpdates`;
-    const response = await fetch(`${telegramUrl}?offset=${offset}&limit=100&allowed_updates=["channel_post"]`);
+    const params = new URLSearchParams({
+      offset: offset.toString(),
+      limit: '100',
+      timeout: '10',
+      allowed_updates: JSON.stringify(['channel_post'])
+    });
+    
+    console.log(`Fetching updates from: ${telegramUrl}?${params.toString()}`);
+    
+    const response = await fetch(`${telegramUrl}?${params.toString()}`);
     const telegramData = await response.json();
 
     if (!telegramData.ok) {
+      console.error('Telegram API error:', telegramData);
       throw new Error(`Telegram API error: ${telegramData.description}`);
     }
 
     const updates: TelegramUpdate[] = telegramData.result || [];
-    console.log(`Found ${updates.length} new updates`);
+    console.log(`Received ${updates.length} updates from Telegram API`);
+
+    // Фильтруем только обновления от нужного канала
+    const channelUpdates = updates.filter(update => {
+      if (!update.channel_post) return false;
+      
+      // Проверяем, что пост из нужного канала (по chat_id в channel_post)
+      const post = update.channel_post as any;
+      if (post.chat && post.chat.id) {
+        const postChatId = post.chat.id.toString();
+        const targetChatId = channelId.toString().replace('@', '');
+        
+        console.log(`Comparing post chat ID ${postChatId} with target ${targetChatId}`);
+        
+        return postChatId === targetChatId || postChatId === channelId;
+      }
+      
+      return true; // Если нет информации о чате, включаем в обработку
+    });
+
+    console.log(`Found ${channelUpdates.length} updates from the target channel`);
 
     let processedCount = 0;
 
-    for (const update of updates) {
+    for (const update of channelUpdates) {
       if (!update.channel_post) continue;
 
       const message = update.channel_post;
       const messageText = message.text || message.caption || '';
       
-      if (!messageText.trim()) continue;
+      console.log(`Processing message ${message.message_id}: "${messageText.substring(0, 50)}..."`);
+      
+      if (!messageText.trim()) {
+        console.log(`Skipping message ${message.message_id}: no text content`);
+        continue;
+      }
 
       // Извлекаем хештеги
       const hashtags = extractHashtags(messageText, message.entities || message.caption_entities || []);
+      console.log(`Found hashtags: ${hashtags.join(', ')}`);
       
       // Генерируем заголовок (первые 100 символов текста)
       const title = messageText.split('\n')[0].substring(0, 100).trim() || 'Без заголовка';
       
       // Создаем URL поста
-      const telegramUrl = `https://t.me/${channelId.replace('@', '')}/${message.message_id}`;
+      const telegramPostUrl = `https://t.me/${channelId.replace('@', '')}/${message.message_id}`;
 
       try {
         // Сохраняем пост
@@ -113,7 +185,7 @@ serve(async (req) => {
             title,
             content: messageText,
             hashtags,
-            telegram_url: telegramUrl,
+            telegram_url: telegramPostUrl,
             published_at: new Date(message.date * 1000).toISOString(),
           })
           .select()
@@ -123,6 +195,8 @@ serve(async (req) => {
           console.error(`Error saving post ${message.message_id}:`, postError);
           continue;
         }
+
+        console.log(`Saved post ${message.message_id} with ID: ${savedPost.id}`);
 
         // Классифицируем пост по разделам
         const matchingSections = sections?.filter(section =>
@@ -168,13 +242,16 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Sync completed. Processed ${processedCount} posts.`);
+    console.log(`Sync completed. Processed ${processedCount} posts from ${updates.length} total updates.`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         processedPosts: processedCount,
-        totalUpdates: updates.length 
+        totalUpdates: updates.length,
+        channelUpdates: channelUpdates.length,
+        channelInfo: chatInfo.result,
+        botInfo: botInfo.result 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
