@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -109,123 +108,43 @@ serve(async (req) => {
       .limit(1)
       .single();
 
-    let startMessageId = 1;
-    let isInitialLoad = !lastPost;
+    // ИЗМЕНЕНО: Теперь бот работает только с новыми сообщениями
+    // Используем getUpdates только для получения недавних обновлений
+    console.log('Using bot only for recent updates (new messages)...');
     
-    if (lastPost && !fromDate) {
-      // Если есть сохраненные посты и не указана конкретная дата, начинаем с последнего + 1
-      startMessageId = lastPost.telegram_message_id + 1;
-      console.log(`Starting from message ID: ${startMessageId} (incremental sync)`);
-    } else {
-      console.log(`Starting from message ID: ${startMessageId} (full sync from specified date)`);
-    }
+    const updatesUrl = `https://api.telegram.org/bot${telegramBotToken}/getUpdates`;
+    const params = new URLSearchParams({
+      limit: '100',
+      allowed_updates: JSON.stringify(['channel_post'])
+    });
+    
+    const response = await fetch(`${updatesUrl}?${params.toString()}`);
+    const telegramData = await response.json();
 
     let allPosts: TelegramMessage[] = [];
-    let currentMessageId = startMessageId;
-    let consecutiveErrors = 0;
-    const maxConsecutiveErrors = 50; // Если 50 подряд сообщений не найдено, останавливаемся
-    let foundAnyPosts = false;
 
-    // Получаем сообщения по одному, начиная с определенного ID
-    while (consecutiveErrors < maxConsecutiveErrors) {
-      try {
-        const messageUrl = `https://api.telegram.org/bot${telegramBotToken}/forwardMessage`;
-        const testResponse = await fetch(messageUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: targetChatId,
-            from_chat_id: targetChatId,
-            message_id: currentMessageId,
-            disable_notification: true
-          })
-        });
+    if (telegramData.ok) {
+      const updates = telegramData.result || [];
+      console.log(`Received ${updates.length} recent updates from Telegram API`);
 
-        if (testResponse.ok) {
-          // Если удалось переслать, значит сообщение существует
-          // Теперь получаем само сообщение через getChatHistory (если доступно) или другим способом
-          
-          // Попробуем получить сообщение напрямую (этот метод может не работать для всех ботов)
-          const getMessageUrl = `https://api.telegram.org/bot${telegramBotToken}/getUpdates`;
-          const updatesResponse = await fetch(`${getMessageUrl}?offset=${currentMessageId}&limit=1&allowed_updates=["channel_post"]`);
-          const updatesData = await updatesResponse.json();
-          
-          if (updatesData.ok && updatesData.result.length > 0) {
-            const update = updatesData.result[0];
-            if (update.channel_post && update.channel_post.message_id === currentMessageId) {
-              const message = update.channel_post;
-              
-              // Проверяем дату сообщения
-              if (message.date >= fromTimestamp) {
-                console.log(`Found message ${currentMessageId} from ${new Date(message.date * 1000).toISOString()}`);
-                allPosts.push(message);
-                foundAnyPosts = true;
-                consecutiveErrors = 0;
-              } else if (foundAnyPosts) {
-                // Если уже нашли посты и дошли до более старых, останавливаемся
-                console.log(`Reached messages older than target date, stopping at message ${currentMessageId}`);
-                break;
-              }
-            } else {
-              consecutiveErrors++;
-            }
-          } else {
-            consecutiveErrors++;
-          }
-        } else {
-          consecutiveErrors++;
-        }
+      const channelUpdates = updates.filter((update: any) => {
+        if (!update.channel_post || !update.channel_post.chat) return false;
         
-        currentMessageId++;
-        
-        // Ограничиваем количество проверяемых сообщений для избежания таймаута
-        if (currentMessageId > startMessageId + 1000) {
-          console.log(`Reached maximum check limit (1000 messages), stopping`);
-          break;
-        }
-        
-      } catch (error) {
-        console.error(`Error checking message ${currentMessageId}:`, error);
-        consecutiveErrors++;
-        currentMessageId++;
-      }
-    }
-
-    // Если не удалось получить через основной метод, пробуем getUpdates
-    if (allPosts.length === 0) {
-      console.log('Trying alternative method with getUpdates...');
-      
-      const updatesUrl = `https://api.telegram.org/bot${telegramBotToken}/getUpdates`;
-      const params = new URLSearchParams({
-        limit: '100',
-        allowed_updates: JSON.stringify(['channel_post'])
+        const postChatId = update.channel_post.chat.id.toString();
+        return postChatId === targetChatId;
       });
-      
-      const response = await fetch(`${updatesUrl}?${params.toString()}`);
-      const telegramData = await response.json();
 
-      if (telegramData.ok) {
-        const updates = telegramData.result || [];
-        console.log(`Received ${updates.length} recent updates from Telegram API`);
-
-        const channelUpdates = updates.filter((update: any) => {
-          if (!update.channel_post || !update.channel_post.chat) return false;
-          
-          const postChatId = update.channel_post.chat.id.toString();
-          return postChatId === targetChatId;
+      const filteredPosts = channelUpdates
+        .map((update: any) => update.channel_post)
+        .filter((post: any) => {
+          // Проверяем дату только если она указана
+          const isAfterDate = fromDate ? post.date >= fromTimestamp : true;
+          console.log(`Post ${post.message_id} date: ${new Date(post.date * 1000).toISOString()}, after filter date: ${isAfterDate}`);
+          return isAfterDate;
         });
 
-        const filteredPosts = channelUpdates
-          .map((update: any) => update.channel_post)
-          .filter((post: any) => {
-            const isAfterDate = post.date >= fromTimestamp;
-            console.log(`Post ${post.message_id} date: ${new Date(post.date * 1000).toISOString()}, after filter date: ${isAfterDate}`);
-            return isAfterDate;
-          });
-
-        allPosts.push(...filteredPosts);
-        console.log(`Found ${filteredPosts.length} posts from recent updates`);
-      }
+      allPosts = filteredPosts;
+      console.log(`Found ${filteredPosts.length} posts from recent updates`);
     }
 
     console.log(`Total posts found: ${allPosts.length}`);
@@ -342,7 +261,7 @@ serve(async (req) => {
         fromDate: fromDate,
         fromTimestamp: fromTimestamp,
         targetChatId: targetChatId,
-        method: allPosts.length > 0 ? (isInitialLoad ? 'full_scan' : 'incremental') : 'getUpdates_fallback'
+        method: 'bot_recent_updates_only'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
