@@ -6,12 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Download, Calendar, FileText } from 'lucide-react';
+import { Loader2, Download, Calendar, FileText, Settings } from 'lucide-react';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { TelegramImport } from './TelegramImport';
+import { PasswordChange } from './PasswordChange';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export const AdminPanel = () => {
@@ -68,7 +69,7 @@ export const AdminPanel = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <Tabs defaultValue="sync" className="max-w-4xl mx-auto">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="sync" className="flex items-center gap-2">
             <Download className="h-4 w-4" />
             Синхронизация с ботом
@@ -76,6 +77,10 @@ export const AdminPanel = () => {
           <TabsTrigger value="import" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Импорт истории
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Настройки
           </TabsTrigger>
         </TabsList>
 
@@ -166,6 +171,15 @@ export const AdminPanel = () => {
 
         <TabsContent value="import">
           <TelegramImport />
+        </TabsContent>
+
+        <TabsContent value="settings">
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium mb-4">Безопасность</h3>
+              <PasswordChange />
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
