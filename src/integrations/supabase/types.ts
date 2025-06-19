@@ -9,7 +9,174 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      admins: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          ip_whitelist: string[] | null
+          password_hash: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          ip_whitelist?: string[] | null
+          password_hash: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          ip_whitelist?: string[] | null
+          password_hash?: string
+        }
+        Relationships: []
+      }
+      material_types: {
+        Row: {
+          created_at: string
+          hashtags: string[]
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          hashtags?: string[]
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          hashtags?: string[]
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      post_material_types: {
+        Row: {
+          id: string
+          material_type_id: string | null
+          post_id: string | null
+        }
+        Insert: {
+          id?: string
+          material_type_id?: string | null
+          post_id?: string | null
+        }
+        Update: {
+          id?: string
+          material_type_id?: string | null
+          post_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_material_types_material_type_id_fkey"
+            columns: ["material_type_id"]
+            isOneToOne: false
+            referencedRelation: "material_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_material_types_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_sections: {
+        Row: {
+          id: string
+          post_id: string | null
+          section_id: string | null
+        }
+        Insert: {
+          id?: string
+          post_id?: string | null
+          section_id?: string | null
+        }
+        Update: {
+          id?: string
+          post_id?: string | null
+          section_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_sections_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_sections_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      posts: {
+        Row: {
+          content: string
+          created_at: string
+          hashtags: string[]
+          id: string
+          published_at: string
+          telegram_message_id: number
+          telegram_url: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          hashtags?: string[]
+          id?: string
+          published_at: string
+          telegram_message_id: number
+          telegram_url: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          hashtags?: string[]
+          id?: string
+          published_at?: string
+          telegram_message_id?: number
+          telegram_url?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sections: {
+        Row: {
+          created_at: string
+          hashtags: string[]
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          hashtags?: string[]
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          hashtags?: string[]
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
