@@ -126,25 +126,11 @@ serve(async (req) => {
 
         console.log(`Saved post ${message.id} with ID: ${savedPost.id}`);
 
-        // Классифицируем пост по разделам
-        const matchingSections = sections?.filter(section =>
-          section.hashtags.some((hashtag: string) =>
-            hashtags.some(postHashtag => 
-              postHashtag.toLowerCase().includes(hashtag.toLowerCase()) ||
-              hashtag.toLowerCase().includes(postHashtag.toLowerCase())
-            )
-          )
-        ) || [];
-
-        // Классифицируем пост по типам материалов
-        const matchingMaterialTypes = materialTypes?.filter(materialType =>
-          materialType.hashtags.some((hashtag: string) =>
-            hashtags.some(postHashtag => 
-              postHashtag.toLowerCase().includes(hashtag.toLowerCase()) ||
-              hashtag.toLowerCase().includes(postHashtag.toLowerCase())
-            )
-          )
-        ) || [];
+        // Улучшенная классификация по разделам
+        const matchingSections = classifyByTags(hashtags, sections || [], 'sections');
+        
+        // Улучшенная классификация по типам материалов
+        const matchingMaterialTypes = classifyByTags(hashtags, materialTypes || [], 'material_types');
 
         // Сохраняем связи с разделами
         for (const section of matchingSections) {
@@ -215,4 +201,47 @@ function extractHashtags(text: string, entities: Array<{ type: string; offset: n
   }
 
   return hashtags;
+}
+
+function classifyByTags(postHashtags: string[], categories: any[], type: string): any[] {
+  const matches: { category: any; score: number }[] = [];
+  
+  for (const category of categories) {
+    let score = 0;
+    let exactMatches = 0;
+    
+    // Считаем точные совпадения хештегов
+    for (const categoryTag of category.hashtags) {
+      for (const postTag of postHashtags) {
+        if (categoryTag.toLowerCase() === postTag.toLowerCase()) {
+          exactMatches++;
+          score += 10; // Высокий балл за точное совпадение
+        } else if (
+          categoryTag.toLowerCase().includes(postTag.toLowerCase()) ||
+          postTag.toLowerCase().includes(categoryTag.toLowerCase())
+        ) {
+          score += 3; // Средний балл за частичное совпадение
+        }
+      }
+    }
+    
+    // Добавляем категорию только если есть хотя бы одно точное совпадение
+    // или несколько частичных совпадений с высоким суммарным баллом
+    if (exactMatches > 0 || score >= 6) {
+      matches.push({ category, score });
+      console.log(`${type} "${category.name}" matched with score: ${score} (exact matches: ${exactMatches})`);
+    }
+  }
+  
+  // Сортируем по убыванию баллов и берем только лучшие совпадения
+  matches.sort((a, b) => b.score - a.score);
+  
+  // Возвращаем категории с высоким баллом (не менее 70% от максимального)
+  if (matches.length > 0) {
+    const maxScore = matches[0].score;
+    const threshold = Math.max(6, maxScore * 0.7);
+    return matches.filter(match => match.score >= threshold).map(match => match.category);
+  }
+  
+  return [];
 }
