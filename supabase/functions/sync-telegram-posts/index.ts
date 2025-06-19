@@ -13,6 +13,12 @@ interface TelegramMessage {
   date: number;
   text?: string;
   caption?: string;
+  chat?: {
+    id: number;
+    title?: string;
+    username?: string;
+    type?: string;
+  };
   entities?: Array<{
     type: string;
     offset: number;
@@ -26,6 +32,7 @@ interface TelegramMessage {
 }
 
 interface TelegramUpdate {
+  update_id: number;
   channel_post: TelegramMessage;
 }
 
@@ -86,6 +93,8 @@ serve(async (req) => {
     }
 
     console.log(`Channel info: ${chatInfo.result.title} (${chatInfo.result.type})`);
+    const targetChatId = chatInfo.result.id.toString();
+    console.log(`Target chat ID: ${targetChatId}`);
 
     // Получаем существующие разделы и типы материалов
     const { data: sections } = await supabase.from('sections').select('*');
@@ -147,25 +156,26 @@ serve(async (req) => {
 
       // Фильтруем только обновления от нужного канала
       const channelUpdates = updates.filter(update => {
-        if (!update.channel_post) return false;
+        if (!update.channel_post || !update.channel_post.chat) return false;
         
-        const post = update.channel_post as any;
-        if (post.chat && post.chat.id) {
-          const postChatId = post.chat.id.toString();
-          const targetChatId = channelId.toString().replace('@', '');
-          
-          return postChatId === targetChatId || postChatId === channelId;
-        }
+        const postChatId = update.channel_post.chat.id.toString();
+        console.log(`Checking post from chat ID: ${postChatId} against target: ${targetChatId}`);
         
-        return true;
+        return postChatId === targetChatId;
       });
+
+      console.log(`Found ${channelUpdates.length} updates from target channel out of ${updates.length} total updates`);
 
       // Фильтруем посты по дате
       const filteredPosts = channelUpdates
         .map(update => update.channel_post)
-        .filter(post => post.date >= fromTimestamp);
+        .filter(post => {
+          const isAfterDate = post.date >= fromTimestamp;
+          console.log(`Post ${post.message_id} date: ${new Date(post.date * 1000).toISOString()}, after filter date: ${isAfterDate}`);
+          return isAfterDate;
+        });
 
-      console.log(`Found ${channelUpdates.length} channel updates, ${filteredPosts.length} after date filter`);
+      console.log(`Found ${filteredPosts.length} posts after date filter`);
 
       allPosts.push(...filteredPosts);
 
@@ -294,7 +304,8 @@ serve(async (req) => {
         channelInfo: chatInfo.result,
         botInfo: botInfo.result,
         fromDate: fromDate,
-        fromTimestamp: fromTimestamp
+        fromTimestamp: fromTimestamp,
+        targetChatId: targetChatId
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
