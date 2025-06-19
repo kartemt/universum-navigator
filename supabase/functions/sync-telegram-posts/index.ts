@@ -52,9 +52,9 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Attempting to sync channel: ${channelId}`);
+    console.log(`Attempting to sync channel: ${channelId} from date: ${fromDate}`);
 
-    // Сначала проверим, что бот может получить информацию о себе
+    // Проверим, что бот может получить информацию о себе
     const botInfoUrl = `https://api.telegram.org/bot${telegramBotToken}/getMe`;
     const botInfoResponse = await fetch(botInfoUrl);
     const botInfo = await botInfoResponse.json();
@@ -69,7 +69,7 @@ serve(async (req) => {
 
     console.log(`Bot info: ${botInfo.result.username} (${botInfo.result.first_name})`);
 
-    // Попробуем получить информацию о канале
+    // Получаем информацию о канале
     const chatInfoUrl = `https://api.telegram.org/bot${telegramBotToken}/getChat`;
     const chatInfoResponse = await fetch(`${chatInfoUrl}?chat_id=${encodeURIComponent(channelId)}`);
     const chatInfo = await chatInfoResponse.json();
@@ -93,6 +93,10 @@ serve(async (req) => {
 
     console.log(`Found ${sections?.length} sections and ${materialTypes?.length} material types`);
 
+    // Определяем дату начала для поиска постов
+    const fromTimestamp = fromDate ? Math.floor(new Date(fromDate).getTime() / 1000) : 0;
+    console.log(`Searching for posts from timestamp: ${fromTimestamp} (${new Date(fromTimestamp * 1000).toISOString()})`);
+
     // Получаем последний сохраненный пост для определения offset
     const { data: lastPost } = await supabase
       .from('posts')
@@ -109,60 +113,98 @@ serve(async (req) => {
       console.log('No existing posts found, starting from the beginning');
     }
 
-    // Получаем обновления из канала с расширенными параметрами
-    const telegramUrl = `https://api.telegram.org/bot${telegramBotToken}/getUpdates`;
-    const params = new URLSearchParams({
-      offset: offset.toString(),
-      limit: '100',
-      timeout: '10',
-      allowed_updates: JSON.stringify(['channel_post'])
-    });
-    
-    console.log(`Fetching updates from: ${telegramUrl}?${params.toString()}`);
-    
-    const response = await fetch(`${telegramUrl}?${params.toString()}`);
-    const telegramData = await response.json();
+    // Получаем все обновления начиная с последнего сохраненного поста
+    let allPosts: TelegramMessage[] = [];
+    let currentOffset = offset;
+    let hasMorePosts = true;
 
-    if (!telegramData.ok) {
-      console.error('Telegram API error:', telegramData);
-      throw new Error(`Telegram API error: ${telegramData.description}`);
+    while (hasMorePosts) {
+      const telegramUrl = `https://api.telegram.org/bot${telegramBotToken}/getUpdates`;
+      const params = new URLSearchParams({
+        offset: currentOffset.toString(),
+        limit: '100',
+        timeout: '10',
+        allowed_updates: JSON.stringify(['channel_post'])
+      });
+      
+      console.log(`Fetching updates from offset ${currentOffset}...`);
+      
+      const response = await fetch(`${telegramUrl}?${params.toString()}`);
+      const telegramData = await response.json();
+
+      if (!telegramData.ok) {
+        console.error('Telegram API error:', telegramData);
+        throw new Error(`Telegram API error: ${telegramData.description}`);
+      }
+
+      const updates: TelegramUpdate[] = telegramData.result || [];
+      console.log(`Received ${updates.length} updates from Telegram API`);
+
+      if (updates.length === 0) {
+        hasMorePosts = false;
+        break;
+      }
+
+      // Фильтруем только обновления от нужного канала
+      const channelUpdates = updates.filter(update => {
+        if (!update.channel_post) return false;
+        
+        const post = update.channel_post as any;
+        if (post.chat && post.chat.id) {
+          const postChatId = post.chat.id.toString();
+          const targetChatId = channelId.toString().replace('@', '');
+          
+          return postChatId === targetChatId || postChatId === channelId;
+        }
+        
+        return true;
+      });
+
+      // Фильтруем посты по дате
+      const filteredPosts = channelUpdates
+        .map(update => update.channel_post)
+        .filter(post => post.date >= fromTimestamp);
+
+      console.log(`Found ${channelUpdates.length} channel updates, ${filteredPosts.length} after date filter`);
+
+      allPosts.push(...filteredPosts);
+
+      // Обновляем offset для следующей итерации
+      if (updates.length > 0) {
+        currentOffset = Math.max(...updates.map(u => u.update_id || 0)) + 1;
+      } else {
+        hasMorePosts = false;
+      }
+
+      // Если получили менее 100 обновлений, значит больше нет
+      if (updates.length < 100) {
+        hasMorePosts = false;
+      }
     }
 
-    const updates: TelegramUpdate[] = telegramData.result || [];
-    console.log(`Received ${updates.length} updates from Telegram API`);
-
-    // Фильтруем только обновления от нужного канала
-    const channelUpdates = updates.filter(update => {
-      if (!update.channel_post) return false;
-      
-      // Проверяем, что пост из нужного канала (по chat_id в channel_post)
-      const post = update.channel_post as any;
-      if (post.chat && post.chat.id) {
-        const postChatId = post.chat.id.toString();
-        const targetChatId = channelId.toString().replace('@', '');
-        
-        console.log(`Comparing post chat ID ${postChatId} with target ${targetChatId}`);
-        
-        return postChatId === targetChatId || postChatId === channelId;
-      }
-      
-      return true; // Если нет информации о чате, включаем в обработку
-    });
-
-    console.log(`Found ${channelUpdates.length} updates from the target channel`);
+    console.log(`Total posts found after filtering: ${allPosts.length}`);
 
     let processedCount = 0;
 
-    for (const update of channelUpdates) {
-      if (!update.channel_post) continue;
-
-      const message = update.channel_post;
+    for (const message of allPosts) {
       const messageText = message.text || message.caption || '';
       
       console.log(`Processing message ${message.message_id}: "${messageText.substring(0, 50)}..."`);
       
       if (!messageText.trim()) {
         console.log(`Skipping message ${message.message_id}: no text content`);
+        continue;
+      }
+
+      // Проверяем, не существует ли уже этот пост
+      const { data: existingPost } = await supabase
+        .from('posts')
+        .select('id')
+        .eq('telegram_message_id', message.message_id)
+        .single();
+
+      if (existingPost) {
+        console.log(`Post ${message.message_id} already exists, skipping`);
         continue;
       }
 
@@ -242,16 +284,17 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Sync completed. Processed ${processedCount} posts from ${updates.length} total updates.`);
+    console.log(`Sync completed. Processed ${processedCount} new posts from ${allPosts.length} total posts found.`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         processedPosts: processedCount,
-        totalUpdates: updates.length,
-        channelUpdates: channelUpdates.length,
+        totalUpdates: allPosts.length,
         channelInfo: chatInfo.result,
-        botInfo: botInfo.result 
+        botInfo: botInfo.result,
+        fromDate: fromDate,
+        fromTimestamp: fromTimestamp
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
