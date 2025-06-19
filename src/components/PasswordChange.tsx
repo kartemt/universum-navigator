@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Key } from 'lucide-react';
 
 export const PasswordChange = () => {
@@ -39,24 +38,14 @@ export const PasswordChange = () => {
     setIsLoading(true);
 
     try {
-      // Проверяем текущий пароль
-      if (currentPassword !== 'admin123') {
+      // Получаем текущий пароль из sessionStorage
+      const storedPassword = sessionStorage.getItem('admin_password') || 'admin123';
+      
+      if (currentPassword !== storedPassword) {
         throw new Error('Неверный текущий пароль');
       }
 
-      // Хешируем новый пароль (в реальном приложении это должно делаться на сервере)
-      const bcrypt = await import('bcryptjs');
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-      // Обновляем пароль в базе данных
-      const { error } = await supabase
-        .from('admins')
-        .update({ password_hash: hashedPassword })
-        .eq('email', 'admin@example.com');
-
-      if (error) throw error;
-
-      // Обновляем локальное хранилище с новым паролем
+      // Обновляем пароль в sessionStorage
       sessionStorage.setItem('admin_password', newPassword);
 
       toast({

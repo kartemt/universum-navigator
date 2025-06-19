@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Lock } from 'lucide-react';
+import { Lock, Loader2 } from 'lucide-react';
 
 interface AdminAuthProps {
   onAuthenticated: () => void;
@@ -16,16 +16,16 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Пароль для доступа к админке (в продакшене лучше хранить в переменных окружения)
-  const ADMIN_PASSWORD = 'admin123';
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     // Имитируем проверку пароля
     setTimeout(() => {
-      if (password === ADMIN_PASSWORD) {
+      // Получаем сохраненный пароль или используем дефолтный
+      const storedPassword = sessionStorage.getItem('admin_password') || 'admin123';
+      
+      if (password === storedPassword) {
         // Сохраняем состояние авторизации в sessionStorage
         sessionStorage.setItem('admin_authenticated', 'true');
         onAuthenticated();
@@ -76,7 +76,14 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
               disabled={isLoading || !password.trim()}
               className="w-full"
             >
-              {isLoading ? "Проверяем..." : "Войти"}
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Проверяем...
+                </>
+              ) : (
+                "Войти"
+              )}
             </Button>
           </form>
 
