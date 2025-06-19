@@ -1,7 +1,6 @@
 
 import React from 'react';
-import { Search, BookOpen, Settings } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Search, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export const Header = () => {
@@ -29,16 +28,6 @@ export const Header = () => {
               <Search className="h-4 w-4" />
               <span>Поиск и фильтрация материалов</span>
             </div>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/admin')}
-              className="flex items-center space-x-2"
-            >
-              <Settings className="h-4 w-4" />
-              <span>Админ</span>
-            </Button>
           </div>
         </div>
       </div>
