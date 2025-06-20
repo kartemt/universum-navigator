@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Lock, Loader2, BookOpen } from 'lucide-react';
+import { Lock, Loader2, Rocket } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface AdminAuthProps {
@@ -66,21 +66,21 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
 
   return (
     <div className="min-h-screen bg-universum-gradient flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-2xl border-0">
+      <Card className="w-full max-w-md shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
         <CardHeader className="text-center pb-8">
-          <div className="mx-auto bg-white/10 backdrop-blur-sm p-4 rounded-2xl w-fit mb-6 border border-white/20">
+          <div className="mx-auto bg-universum-blue p-4 rounded-2xl w-fit mb-6">
             <div className="flex items-center space-x-3">
-              <BookOpen className="h-10 w-10 text-white" />
+              <Rocket className="h-10 w-10 text-white" />
               <div className="text-left">
-                <div className="text-white font-bold text-lg">УниверсУм</div>
-                <div className="text-white/80 text-sm">Знаний</div>
+                <div className="text-white font-bold text-lg font-akrobat">УниверсУм</div>
+                <div className="text-white/90 text-sm">Знаний</div>
               </div>
             </div>
           </div>
-          <CardTitle className="text-3xl text-white font-bold mb-2">
+          <CardTitle className="text-3xl text-universum-blue font-bold mb-2 font-akrobat">
             Админ-панель
           </CardTitle>
-          <CardDescription className="text-white/80 text-lg">
+          <CardDescription className="text-universum-gray text-lg">
             Панель управления базой знаний
           </CardDescription>
         </CardHeader>
@@ -88,7 +88,7 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
         <CardContent className="pb-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-white font-medium">
+              <Label htmlFor="email" className="text-universum-blue font-medium">
                 Email администратора
               </Label>
               <Input
@@ -98,12 +98,12 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="bg-white/10 border-white/20 text-white placeholder:text-white/60 backdrop-blur-sm"
+                className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-white font-medium">
+              <Label htmlFor="password" className="text-universum-blue font-medium">
                 Пароль
               </Label>
               <Input
@@ -113,14 +113,14 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="bg-white/10 border-white/20 text-white placeholder:text-white/60 backdrop-blur-sm"
+                className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
               />
             </div>
 
             <Button 
               type="submit" 
               disabled={isLoading || !email.trim() || !password.trim()}
-              className="w-full bg-white/20 hover:bg-white/30 text-white font-semibold py-3 backdrop-blur-sm border border-white/30 transition-all duration-200"
+              className="w-full bg-universum-blue hover:bg-universum-dark-blue text-white font-semibold py-3 transition-all duration-200"
             >
               {isLoading ? (
                 <>
