@@ -12,12 +12,27 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, serviceKey);
 
-// Helper function to verify password using Web Crypto API
+// Helper function to hash password using Web Crypto API
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+// Helper function to verify password
 async function verifyPassword(password: string, hash: string): Promise<boolean> {
   try {
-    // For now, let's do a simple comparison - in production you'd want proper hashing
-    // This is a temporary solution to get the admin auth working
-    return password === hash;
+    // Check if it's a plain text password (for backward compatibility)
+    if (password === hash) {
+      return true;
+    }
+    
+    // Hash the input password and compare with stored hash
+    const hashedInput = await hashPassword(password);
+    return hashedInput === hash;
   } catch (error) {
     console.error('Password verification error:', error);
     return false;

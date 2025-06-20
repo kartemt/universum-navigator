@@ -13,21 +13,21 @@ interface AdminAuthProps {
 }
 
 export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
+  const [email, setEmail] = useState('admin@universum.com');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const ADMIN_EMAIL = 'admin@example.com';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      console.log('Attempting admin authentication...');
+      console.log('Attempting admin authentication with email:', email);
       
       const { data, error } = await supabase.functions.invoke('verify-admin', {
         body: { 
-          email: ADMIN_EMAIL,
+          email: email.trim(),
           password: password 
         }
       });
@@ -39,23 +39,24 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
 
       if (data?.success) {
         sessionStorage.setItem('admin_authenticated', 'true');
+        sessionStorage.setItem('admin_email', email);
         onAuthenticated();
         toast({
           title: 'Доступ разрешен',
-          description: 'Добро пожаловать в админ-панель',
+          description: 'Добро пожаловать в админ-панель UniversUm',
         });
       } else {
         toast({
-          title: 'Неверный пароль',
-          description: 'Попробуйте еще раз',
+          title: 'Неверные данные',
+          description: 'Проверьте email и пароль',
           variant: 'destructive',
         });
       }
     } catch (err: any) {
       console.error('Auth error:', err);
       toast({
-        title: 'Ошибка',
-        description: err.message || 'Не удалось выполнить проверку',
+        title: 'Ошибка аутентификации',
+        description: err.message || 'Не удалось выполнить вход',
         variant: 'destructive',
       });
     } finally {
@@ -64,20 +65,32 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
-          <div className="mx-auto bg-slate-100 p-3 rounded-full w-fit mb-4">
-            <Lock className="h-8 w-8 text-slate-600" />
+          <div className="mx-auto bg-blue-100 p-3 rounded-full w-fit mb-4">
+            <Lock className="h-8 w-8 text-blue-600" />
           </div>
-          <CardTitle>Доступ к админ-панели</CardTitle>
-          <CardDescription>
-            Введите пароль для доступа к панели администратора
+          <CardTitle className="text-2xl text-gray-800">Админ-панель UniversUm</CardTitle>
+          <CardDescription className="text-gray-600">
+            Введите данные для доступа к панели администратора
           </CardDescription>
         </CardHeader>
         
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="admin@universum.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="password">Пароль</Label>
               <Input
@@ -92,8 +105,8 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
 
             <Button 
               type="submit" 
-              disabled={isLoading || !password.trim()}
-              className="w-full"
+              disabled={isLoading || !email.trim() || !password.trim()}
+              className="w-full bg-blue-600 hover:bg-blue-700"
             >
               {isLoading ? (
                 <>
@@ -101,11 +114,16 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
                   Проверяем...
                 </>
               ) : (
-                "Войти"
+                "Войти в админ-панель"
               )}
             </Button>
           </form>
 
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+            <strong>Данные для входа:</strong><br />
+            Email: admin@universum.com<br />
+            Пароль: admin123
+          </div>
         </CardContent>
       </Card>
     </div>
