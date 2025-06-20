@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Lock, Loader2 } from 'lucide-react';
+import { Lock, Loader2, BookOpen } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface AdminAuthProps {
@@ -13,7 +13,7 @@ interface AdminAuthProps {
 }
 
 export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
-  const [email, setEmail] = useState('kartem2001@yahoo.com');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -43,7 +43,7 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
         onAuthenticated();
         toast({
           title: 'Доступ разрешен',
-          description: 'Добро пожаловать в админ-панель UniversUm',
+          description: 'Добро пожаловать в админ-панель УниверсУм',
         });
       } else {
         toast({
@@ -65,34 +65,47 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-xl">
-        <CardHeader className="text-center">
-          <div className="mx-auto bg-blue-100 p-3 rounded-full w-fit mb-4">
-            <Lock className="h-8 w-8 text-blue-600" />
+    <div className="min-h-screen bg-universum-gradient flex items-center justify-center p-4">
+      <Card className="w-full max-w-md shadow-2xl border-0">
+        <CardHeader className="text-center pb-8">
+          <div className="mx-auto bg-white/10 backdrop-blur-sm p-4 rounded-2xl w-fit mb-6 border border-white/20">
+            <div className="flex items-center space-x-3">
+              <BookOpen className="h-10 w-10 text-white" />
+              <div className="text-left">
+                <div className="text-white font-bold text-lg">УниверсУм</div>
+                <div className="text-white/80 text-sm">Знаний</div>
+              </div>
+            </div>
           </div>
-          <CardTitle className="text-2xl text-gray-800">Админ-панель UniversUm</CardTitle>
-          <CardDescription className="text-gray-600">
-            Введите данные для доступа к панели администратора
+          <CardTitle className="text-3xl text-white font-bold mb-2">
+            Админ-панель
+          </CardTitle>
+          <CardDescription className="text-white/80 text-lg">
+            Панель управления базой знаний
           </CardDescription>
         </CardHeader>
         
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <CardContent className="pb-8">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-white font-medium">
+                Email администратора
+              </Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="kartem2001@yahoo.com"
+                placeholder="example@domain.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="bg-white/10 border-white/20 text-white placeholder:text-white/60 backdrop-blur-sm"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Пароль</Label>
+              <Label htmlFor="password" className="text-white font-medium">
+                Пароль
+              </Label>
               <Input
                 id="password"
                 type="password"
@@ -100,30 +113,28 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="bg-white/10 border-white/20 text-white placeholder:text-white/60 backdrop-blur-sm"
               />
             </div>
 
             <Button 
               type="submit" 
               disabled={isLoading || !email.trim() || !password.trim()}
-              className="w-full bg-blue-600 hover:bg-blue-700"
+              className="w-full bg-white/20 hover:bg-white/30 text-white font-semibold py-3 backdrop-blur-sm border border-white/30 transition-all duration-200"
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Проверяем...
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Проверяем доступ...
                 </>
               ) : (
-                "Войти в админ-панель"
+                <>
+                  <Lock className="mr-2 h-5 w-5" />
+                  Войти в панель
+                </>
               )}
             </Button>
           </form>
-
-          <div className="mt-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
-            <strong>Данные для входа:</strong><br />
-            Email: kartem2001@yahoo.com<br />
-            Пароль: admin123
-          </div>
         </CardContent>
       </Card>
     </div>

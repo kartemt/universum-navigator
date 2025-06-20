@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -19,6 +20,16 @@ export default {
 		},
 		extend: {
 			colors: {
+				// UniversUm brand colors
+				'universum-dark-blue': '#1a2b5c',
+				'universum-blue': '#2563eb',
+				'universum-light-blue': '#3b82f6',
+				'universum-purple': '#6366f1',
+				'universum-light-purple': '#8b5cf6',
+				'universum-accent': '#10b981',
+				'universum-gray': '#64748b',
+				'universum-light-gray': '#94a3b8',
+				// Standard shadcn colors
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
 				ring: 'hsl(var(--ring))',
@@ -67,6 +78,9 @@ export default {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
+			},
+			backgroundImage: {
+				'universum-gradient': 'linear-gradient(135deg, #1a2b5c 0%, #2563eb 50%, #6366f1 100%)',
 			},
 			keyframes: {
 				'accordion-down': {
