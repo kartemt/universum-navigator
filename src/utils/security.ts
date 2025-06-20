@@ -1,3 +1,4 @@
+import React from 'react';
 
 // Security utilities for protecting the application
 export class SecurityManager {
