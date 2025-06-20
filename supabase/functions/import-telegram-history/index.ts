@@ -92,12 +92,12 @@ serve(async (req) => {
           continue;
         }
 
-        // Извлекаем хештеги
-        const hashtags = extractHashtags(messageText, message.text_entities || []);
+        // Извлекаем хештеги из текста сообщения
+        const hashtags = extractHashtags(messageText);
         console.log(`Message ${message.id} hashtags: ${hashtags.join(', ')}`);
         
         // Генерируем заголовок
-        const title = messageText.split('\n')[0].substring(0, 100).trim() || 'Без заголовка';
+        const title = generateTitle(messageText);
         
         // Создаем URL поста (используем ID канала из экспорта)
         const telegramPostUrl = `https://t.me/c/${Math.abs(exportData.id)}/${message.id}`;
@@ -126,11 +126,11 @@ serve(async (req) => {
 
         console.log(`Saved post ${message.id} with ID: ${savedPost.id}`);
 
-        // Исправленная классификация по разделам
-        const matchingSections = classifyByTags(hashtags, sections || []);
+        // Классификация по разделам
+        const matchingSections = classifyByHashtags(hashtags, sections || []);
         
-        // Исправленная классификация по типам материалов
-        const matchingMaterialTypes = classifyByTags(hashtags, materialTypes || []);
+        // Классификация по типам материалов
+        const matchingMaterialTypes = classifyByHashtags(hashtags, materialTypes || []);
 
         console.log(`Classifications for post ${message.id}:`);
         console.log(`- Sections: ${matchingSections.map(s => s.name).join(', ')}`);
@@ -182,46 +182,61 @@ serve(async (req) => {
   }
 });
 
-function extractHashtags(text: string, entities: Array<{ type: string; offset: number; length: number; }>): string[] {
+function extractHashtags(text: string): string[] {
   const hashtags: string[] = [];
   
-  // Извлекаем хештеги из entities
-  entities.forEach(entity => {
-    if (entity.type === 'hashtag') {
-      const hashtag = text.substring(entity.offset + 1, entity.offset + entity.length); // +1 чтобы убрать #
-      hashtags.push(hashtag);
-    }
-  });
-
-  // Дополнительно ищем хештеги регулярным выражением
-  const hashtagRegex = /#([а-яё\w]+)/gi;
+  // Ищем все хештеги в тексте с помощью регулярного выражения
+  const hashtagRegex = /#([а-яёa-zA-Z0-9_]+)/gi;
   let match;
+  
   while ((match = hashtagRegex.exec(text)) !== null) {
-    const hashtag = match[1];
+    const hashtag = match[1]; // Берем группу без символа #
     if (!hashtags.includes(hashtag)) {
       hashtags.push(hashtag);
     }
   }
 
+  console.log('Extracted hashtags from text:', hashtags);
   return hashtags;
 }
 
-function classifyByTags(postHashtags: string[], categories: any[]): any[] {
+function generateTitle(text: string): string {
+  // Убираем хештеги и ссылки из начала для генерации заголовка
+  const cleanText = text
+    .replace(/#[а-яёa-zA-Z0-9_]+/g, '') // убираем хештеги
+    .replace(/https?:\/\/[^\s]+/g, '') // убираем ссылки
+    .trim();
+  
+  // Берем первое предложение или первые 100 символов
+  const firstSentence = cleanText.split(/[.!?]/)[0];
+  const title = firstSentence.length > 100 
+    ? firstSentence.substring(0, 100).trim() + '...'
+    : firstSentence.trim();
+    
+  return title || 'Без заголовка';
+}
+
+function classifyByHashtags(postHashtags: string[], categories: any[]): any[] {
   const matches: any[] = [];
   
+  console.log('Classifying post hashtags:', postHashtags);
+  
   for (const category of categories) {
-    // Проверяем точные совпадения хештегов (без учета регистра)
-    const hasExactMatch = category.hashtags.some((categoryTag: string) =>
+    console.log(`Checking category "${category.name}" with hashtags:`, category.hashtags);
+    
+    // Проверяем есть ли пересечения хештегов (без учета регистра)
+    const hasMatch = category.hashtags.some((categoryTag: string) =>
       postHashtags.some(postTag => 
         categoryTag.toLowerCase() === postTag.toLowerCase()
       )
     );
     
-    if (hasExactMatch) {
+    if (hasMatch) {
       matches.push(category);
-      console.log(`Exact match found: "${category.name}" for hashtags: ${postHashtags.join(', ')}`);
+      console.log(`Match found: "${category.name}"`);
     }
   }
   
+  console.log('Final matches:', matches.map(m => m.name));
   return matches;
 }

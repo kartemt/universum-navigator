@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Lock, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import bcrypt from 'bcryptjs';
 
 interface AdminAuthProps {
   onAuthenticated: () => void;
@@ -24,18 +23,21 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase
-        .from('admins')
-        .select('password_hash')
-        .eq('email', ADMIN_EMAIL)
-        .single();
+      console.log('Attempting admin authentication...');
+      
+      const { data, error } = await supabase.functions.invoke('verify-admin', {
+        body: { 
+          email: ADMIN_EMAIL,
+          password: password 
+        }
+      });
 
-      if (error || !data) {
-        throw new Error('Не удалось проверить пароль');
+      if (error) {
+        console.error('Authentication error:', error);
+        throw new Error(error.message || 'Ошибка проверки пароля');
       }
 
-      const isValid = await bcrypt.compare(password, data.password_hash);
-      if (isValid) {
+      if (data?.success) {
         sessionStorage.setItem('admin_authenticated', 'true');
         onAuthenticated();
         toast({
@@ -49,11 +51,11 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
           variant: 'destructive',
         });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Auth error:', err);
       toast({
         title: 'Ошибка',
-        description: 'Не удалось выполнить проверку',
+        description: err.message || 'Не удалось выполнить проверку',
         variant: 'destructive',
       });
     } finally {
