@@ -46,8 +46,8 @@ export const PostManagement = () => {
   const [sections, setSections] = useState<Section[]>([]);
   const [materialTypes, setMaterialTypes] = useState<MaterialType[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSection, setSelectedSection] = useState<string>('');
-  const [selectedMaterialType, setSelectedMaterialType] = useState<string>('');
+  const [selectedSection, setSelectedSection] = useState<string>('all');
+  const [selectedMaterialType, setSelectedMaterialType] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [selectedSections, setSelectedSections] = useState<string[]>([]);
@@ -242,10 +242,10 @@ export const PostManagement = () => {
       post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       post.content.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesSection = !selectedSection || 
+    const matchesSection = selectedSection === 'all' || 
       post.sections?.some(s => s.id === selectedSection);
     
-    const matchesMaterialType = !selectedMaterialType ||
+    const matchesMaterialType = selectedMaterialType === 'all' ||
       post.material_types?.some(mt => mt.id === selectedMaterialType);
     
     return matchesSearch && matchesSection && matchesMaterialType;
@@ -416,7 +416,7 @@ export const PostManagement = () => {
                 <SelectValue placeholder="Фильтр по разделу" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Все разделы</SelectItem>
+                <SelectItem value="all">Все разделы</SelectItem>
                 {sections.map(section => (
                   <SelectItem key={section.id} value={section.id}>
                     {section.name}
@@ -430,7 +430,7 @@ export const PostManagement = () => {
                 <SelectValue placeholder="Фильтр по типу материала" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Все типы</SelectItem>
+                <SelectItem value="all">Все типы</SelectItem>
                 {materialTypes.map(type => (
                   <SelectItem key={type.id} value={type.id}>
                     {type.name}
