@@ -17,19 +17,7 @@ export const Header = () => {
             <div className="relative">
               <div className="bg-universum-cosmic p-4 rounded-xl shadow-xl group-hover:shadow-2xl transition-all duration-300 relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-universum-dark-blue to-universum-teal opacity-20"></div>
-                <img 
-                  src="/lovable-uploads/06f0bb98-87f2-4ddc-a596-c73ce1b85921.png" 
-                  alt="UniversUm Logo" 
-                  className="h-10 w-10 relative z-10"
-                  onError={(e) => {
-                    // Fallback to rocket icon if image fails to load
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const fallback = target.nextElementSibling as HTMLElement;
-                    if (fallback) fallback.style.display = 'block';
-                  }}
-                />
-                <Rocket className="h-10 w-10 text-white hidden" />
+                <Rocket className="h-10 w-10 text-white relative z-10" />
               </div>
             </div>
             <div>
