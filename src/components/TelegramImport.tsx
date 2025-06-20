@@ -46,7 +46,7 @@ export const TelegramImport = () => {
 
       const { data, error } = await supabase.functions.invoke('import-telegram-history', {
         body: formData,
-        headers: { 'Content-Type': 'multipart/form-data' }
+        // Убираем заголовок Content-Type - браузер установит его автоматически с правильным boundary
       });
 
       if (error) {
