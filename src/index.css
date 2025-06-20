@@ -7,15 +7,18 @@
 
 @layer base {
   :root {
-    /* UniversUm brand colors */
-    --universum-dark-blue: #1a2b5c;
-    --universum-blue: #2563eb;
-    --universum-light-blue: #3b82f6;
-    --universum-purple: #6366f1;
-    --universum-light-purple: #8b5cf6;
-    --universum-accent: #10b981;
-    --universum-gray: #64748b;
-    --universum-light-gray: #94a3b8;
+    /* UniversUm brand colors from uploaded palette */
+    --universum-teal: #4dd0e1;
+    --universum-dark-teal: #00838f;
+    --universum-blue: #1976d2;
+    --universum-dark-blue: #0d47a1;
+    --universum-light-blue: #64b5f6;
+    --universum-orange: #ff9800;
+    --universum-dark-orange: #e65100;
+    --universum-light-orange: #ffcc02;
+    --universum-accent-orange: #ff5722;
+    --universum-gray: #546e7a;
+    --universum-light-gray: #90a4ae;
 
     --background: 0 0% 100%;
     --foreground: 210 40% 8%;
@@ -26,16 +29,16 @@
     --popover: 0 0% 100%;
     --popover-foreground: 210 40% 8%;
 
-    --primary: 221 83% 53%;
+    --primary: 25 77% 55%;
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
-    --secondary-foreground: 221 83% 53%;
+    --secondary-foreground: 25 77% 55%;
 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 158 64% 52%;
+    --accent: 188 86% 53%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
@@ -43,18 +46,18 @@
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 221 83% 53%;
+    --ring: 188 86% 53%;
 
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 221 83% 53%;
+    --sidebar-primary: 25 77% 55%;
     --sidebar-primary-foreground: 0 0% 98%;
     --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 221 83% 53%;
+    --sidebar-accent-foreground: 25 77% 55%;
     --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 221 83% 53%;
+    --sidebar-ring: 188 86% 53%;
   }
 
   .dark {
@@ -67,7 +70,7 @@
     --popover: 210 40% 8%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 221 83% 53%;
+    --primary: 25 77% 55%;
     --primary-foreground: 210 40% 8%;
 
     --secondary: 217.2 32.6% 17.5%;
@@ -76,7 +79,7 @@
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 158 64% 52%;
+    --accent: 188 86% 53%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 62.8% 30.6%;
@@ -84,15 +87,15 @@
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 221 83% 53%;
+    --ring: 188 86% 53%;
     --sidebar-background: 210 40% 8%;
     --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 221 83% 53%;
+    --sidebar-primary: 25 77% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 240 3.7% 15.9%;
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 221 83% 53%;
+    --sidebar-ring: 188 86% 53%;
   }
 }
 
@@ -109,26 +112,46 @@
 /* UniversUm brand utilities */
 @layer utilities {
   .bg-universum-gradient {
-    background: linear-gradient(135deg, #1a2b5c 0%, #2563eb 50%, #6366f1 100%);
+    background: linear-gradient(135deg, #00838f 0%, #1976d2 50%, #ff9800 100%);
+  }
+  
+  .bg-universum-cosmic {
+    background: linear-gradient(135deg, #0d47a1 0%, #1976d2 25%, #4dd0e1 50%, #ff9800 75%, #e65100 100%);
   }
   
   .text-universum-blue {
-    color: #2563eb;
+    color: #1976d2;
+  }
+  
+  .text-universum-teal {
+    color: #4dd0e1;
+  }
+  
+  .text-universum-orange {
+    color: #ff9800;
   }
   
   .text-universum-dark {
-    color: #1a2b5c;
+    color: #0d47a1;
   }
   
   .bg-universum-blue {
-    background-color: #2563eb;
+    background-color: #1976d2;
   }
   
-  .bg-universum-dark {
-    background-color: #1a2b5c;
+  .bg-universum-teal {
+    background-color: #4dd0e1;
+  }
+  
+  .bg-universum-orange {
+    background-color: #ff9800;
   }
   
   .border-universum-blue {
-    border-color: #2563eb;
+    border-color: #1976d2;
+  }
+  
+  .border-universum-teal {
+    border-color: #4dd0e1;
   }
 }

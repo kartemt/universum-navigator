@@ -20,15 +20,19 @@ export default {
 		},
 		extend: {
 			colors: {
-				// UniversUm brand colors
-				'universum-dark-blue': '#1a2b5c',
-				'universum-blue': '#2563eb',
-				'universum-light-blue': '#3b82f6',
-				'universum-purple': '#6366f1',
-				'universum-light-purple': '#8b5cf6',
-				'universum-accent': '#10b981',
-				'universum-gray': '#64748b',
-				'universum-light-gray': '#94a3b8',
+				// UniversUm brand colors from palette
+				'universum-teal': '#4dd0e1',
+				'universum-dark-teal': '#00838f',
+				'universum-blue': '#1976d2',
+				'universum-dark-blue': '#0d47a1',
+				'universum-light-blue': '#64b5f6',
+				'universum-orange': '#ff9800',
+				'universum-dark-orange': '#e65100',
+				'universum-light-orange': '#ffcc02',
+				'universum-accent-orange': '#ff5722',
+				// Supporting grays
+				'universum-gray': '#546e7a',
+				'universum-light-gray': '#90a4ae',
 				// Standard shadcn colors
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
@@ -80,7 +84,8 @@ export default {
 				sm: 'calc(var(--radius) - 4px)'
 			},
 			backgroundImage: {
-				'universum-gradient': 'linear-gradient(135deg, #1a2b5c 0%, #2563eb 50%, #6366f1 100%)',
+				'universum-gradient': 'linear-gradient(135deg, #00838f 0%, #1976d2 50%, #ff9800 100%)',
+				'universum-cosmic': 'linear-gradient(135deg, #0d47a1 0%, #1976d2 25%, #4dd0e1 50%, #ff9800 75%, #e65100 100%)',
 			},
 			keyframes: {
 				'accordion-down': {
