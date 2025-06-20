@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +15,7 @@ export const PasswordChange = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const ADMIN_EMAIL = 'admin@universum.com';
+  const ADMIN_EMAIL = 'kartem2001@yahoo.com';
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,19 +41,25 @@ export const PasswordChange = () => {
     setIsLoading(true);
 
     try {
+      console.log('Verifying current password for:', ADMIN_EMAIL);
       const verifyRes = await supabase.functions.invoke('verify-admin', {
         body: { email: ADMIN_EMAIL, password: currentPassword },
       });
+
+      console.log('Verify response:', verifyRes);
 
       if (verifyRes.error || !verifyRes.data?.success) {
         throw new Error('Неверный текущий пароль');
       }
 
       const hashed = await bcrypt.hash(newPassword, 10);
+      console.log('Updating password hash for:', ADMIN_EMAIL);
 
       const updateRes = await supabase.functions.invoke('update-admin-password', {
         body: { email: ADMIN_EMAIL, passwordHash: hashed },
       });
+
+      console.log('Update response:', updateRes);
 
       if (updateRes.error || !updateRes.data?.success) {
         throw new Error('Не удалось обновить пароль');
@@ -87,7 +94,7 @@ export const PasswordChange = () => {
           Смена пароля
         </CardTitle>
         <CardDescription>
-          Измените пароль для доступа к административной панели
+          Измените пароль для доступа к административной панели (Email: {ADMIN_EMAIL})
         </CardDescription>
       </CardHeader>
       <CardContent>
