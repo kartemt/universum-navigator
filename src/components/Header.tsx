@@ -28,6 +28,12 @@ export const Header = () => {
               <Search className="h-4 w-4" />
               <span>Поиск и фильтрация материалов</span>
             </div>
+            <button
+              onClick={() => navigate('/hashtags')}
+              className="text-sm text-blue-600 hover:underline"
+            >
+              Хештеги
+            </button>
           </div>
         </div>
       </div>
