@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Edit, Hash, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
+import { Search, Edit, Hash, ExternalLink, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 
@@ -54,6 +54,7 @@ export const PostManagement = () => {
   const [selectedMaterialTypes, setSelectedMaterialTypes] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -63,89 +64,119 @@ export const PostManagement = () => {
   const loadAllData = async () => {
     setIsLoading(true);
     setError(null);
+    setDebugInfo('');
     
     try {
-      console.log('Начинаем загрузку всех данных...');
+      console.log('🔍 Начинаем загрузку данных...');
+      setDebugInfo('Подключение к базе данных...');
+
+      // Шаг 1: Проверяем базовые таблицы
+      console.log('📊 Загружаем базовые данные...');
       
-      // Загружаем все данные параллельно
-      const [postsResult, sectionsResult, materialTypesResult] = await Promise.all([
-        supabase.from('posts').select('*').order('published_at', { ascending: false }),
-        supabase.from('sections').select('*').order('name'),
-        supabase.from('material_types').select('*').order('name')
-      ]);
+      const { data: postsData, error: postsError } = await supabase
+        .from('posts')
+        .select('*')
+        .order('published_at', { ascending: false });
 
-      // Проверяем ошибки
-      if (postsResult.error) {
-        console.error('Ошибка загрузки постов:', postsResult.error);
-        throw postsResult.error;
-      }
-      if (sectionsResult.error) {
-        console.error('Ошибка загрузки разделов:', sectionsResult.error);
-        throw sectionsResult.error;
-      }
-      if (materialTypesResult.error) {
-        console.error('Ошибка загрузки типов материалов:', materialTypesResult.error);
-        throw materialTypesResult.error;
+      if (postsError) {
+        console.error('❌ Ошибка загрузки постов:', postsError);
+        setDebugInfo(`Ошибка загрузки постов: ${postsError.message}`);
+        throw new Error(`Не удалось загрузить посты: ${postsError.message}`);
       }
 
-      console.log('Загружено постов:', postsResult.data?.length || 0);
-      console.log('Загружено разделов:', sectionsResult.data?.length || 0);
-      console.log('Загружено типов материалов:', materialTypesResult.data?.length || 0);
+      console.log(`✅ Загружено ${postsData?.length || 0} постов`);
+      setDebugInfo(`Найдено ${postsData?.length || 0} постов в базе данных`);
+
+      const { data: sectionsData, error: sectionsError } = await supabase
+        .from('sections')
+        .select('*')
+        .order('name');
+
+      if (sectionsError) {
+        console.error('❌ Ошибка загрузки разделов:', sectionsError);
+        throw new Error(`Не удалось загрузить разделы: ${sectionsError.message}`);
+      }
+
+      console.log(`✅ Загружено ${sectionsData?.length || 0} разделов`);
+
+      const { data: materialTypesData, error: materialTypesError } = await supabase
+        .from('material_types')
+        .select('*')
+        .order('name');
+
+      if (materialTypesError) {
+        console.error('❌ Ошибка загрузки типов материалов:', materialTypesError);
+        throw new Error(`Не удалось загрузить типы материалов: ${materialTypesError.message}`);
+      }
+
+      console.log(`✅ Загружено ${materialTypesData?.length || 0} типов материалов`);
 
       // Устанавливаем базовые данные
-      setSections(sectionsResult.data || []);
-      setMaterialTypes(materialTypesResult.data || []);
+      setSections(sectionsData || []);
+      setMaterialTypes(materialTypesData || []);
+      setDebugInfo(`Загружено: ${postsData?.length || 0} постов, ${sectionsData?.length || 0} разделов, ${materialTypesData?.length || 0} типов`);
 
-      // Теперь загружаем связи для каждого поста
+      // Если нет постов, завершаем
+      if (!postsData || postsData.length === 0) {
+        console.log('ℹ️ Постов не найдено');
+        setPosts([]);
+        setDebugInfo('Постов в базе данных не найдено');
+        setIsLoading(false);
+        return;
+      }
+
+      // Шаг 2: Загружаем связи для постов
+      console.log('🔗 Загружаем связи постов...');
+      setDebugInfo('Загружаем связи разделов и типов материалов...');
+
       const postsWithRelations = await Promise.all(
-        (postsResult.data || []).map(async (post) => {
-          console.log('Загружаем связи для поста:', post.id);
+        postsData.map(async (post, index) => {
+          console.log(`📝 Обрабатываем пост ${index + 1}/${postsData.length}: ${post.title}`);
           
           try {
             // Загружаем разделы поста
-            const { data: postSectionsData, error: sectionsError } = await supabase
+            const { data: postSections, error: sectionsError } = await supabase
               .from('post_sections')
               .select(`
-                section_id,
-                sections!inner(id, name)
+                sections!inner (
+                  id,
+                  name
+                )
               `)
               .eq('post_id', post.id);
 
             if (sectionsError) {
-              console.error('Ошибка загрузки разделов поста:', sectionsError);
+              console.warn(`⚠️ Ошибка загрузки разделов для поста ${post.id}:`, sectionsError);
             }
 
             // Загружаем типы материалов поста
-            const { data: postMaterialTypesData, error: typesError } = await supabase
+            const { data: postMaterialTypes, error: typesError } = await supabase
               .from('post_material_types')
               .select(`
-                material_type_id,
-                material_types!inner(id, name)
+                material_types!inner (
+                  id,
+                  name
+                )
               `)
               .eq('post_id', post.id);
 
             if (typesError) {
-              console.error('Ошибка загрузки типов материалов поста:', typesError);
+              console.warn(`⚠️ Ошибка загрузки типов для поста ${post.id}:`, typesError);
             }
 
-            // Формируем массивы разделов и типов материалов
-            const postSections = (postSectionsData || [])
-              .map(ps => ps.sections)
-              .filter(Boolean);
+            // Формируем результат
+            const sections = (postSections || []).map(ps => ps.sections).filter(Boolean);
+            const material_types = (postMaterialTypes || []).map(pmt => pmt.material_types).filter(Boolean);
 
-            const postMaterialTypes = (postMaterialTypesData || [])
-              .map(pmt => pmt.material_types)
-              .filter(Boolean);
-
-            console.log(`Пост ${post.id}: разделов ${postSections.length}, типов материалов ${postMaterialTypes.length}`);
+            console.log(`✅ Пост "${post.title}": ${sections.length} разделов, ${material_types.length} типов`);
 
             return {
               ...post,
-              sections: postSections,
-              material_types: postMaterialTypes
+              sections,
+              material_types
             };
           } catch (error) {
-            console.error('Ошибка загрузки связей поста:', error);
+            console.error(`❌ Ошибка обработки поста ${post.id}:`, error);
             return {
               ...post,
               sections: [],
@@ -155,15 +186,18 @@ export const PostManagement = () => {
         })
       );
 
+      console.log('🎉 Все данные успешно загружены');
       setPosts(postsWithRelations);
-      console.log('Все данные успешно загружены');
+      setDebugInfo(`Успешно загружено ${postsWithRelations.length} постов с их связями`);
 
-    } catch (error) {
-      console.error('Критическая ошибка загрузки данных:', error);
-      setError('Не удалось загрузить данные. Проверьте подключение к базе данных.');
+    } catch (error: any) {
+      console.error('💥 Критическая ошибка:', error);
+      const errorMessage = error.message || 'Неизвестная ошибка';
+      setError(errorMessage);
+      setDebugInfo(`Ошибка: ${errorMessage}`);
       toast({
-        title: "Ошибка",
-        description: "Не удалось загрузить данные",
+        title: "Ошибка загрузки",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -246,7 +280,7 @@ export const PostManagement = () => {
 
     setIsSaving(true);
     try {
-      console.log('Сохранение классификации для поста:', editingPost.id);
+      console.log('💾 Сохранение классификации для поста:', editingPost.id);
 
       // Удаляем старые связи
       const [sectionsDelete, typesDelete] = await Promise.all([
@@ -255,12 +289,12 @@ export const PostManagement = () => {
       ]);
 
       if (sectionsDelete.error) {
-        console.error('Ошибка удаления старых разделов:', sectionsDelete.error);
+        console.error('❌ Ошибка удаления старых разделов:', sectionsDelete.error);
         throw sectionsDelete.error;
       }
 
       if (typesDelete.error) {
-        console.error('Ошибка удаления старых типов материалов:', typesDelete.error);
+        console.error('❌ Ошибка удаления старых типов материалов:', typesDelete.error);
         throw typesDelete.error;
       }
 
@@ -293,7 +327,7 @@ export const PostManagement = () => {
         const results = await Promise.all(insertPromises);
         for (const result of results) {
           if (result.error) {
-            console.error('Ошибка вставки новых связей:', result.error);
+            console.error('❌ Ошибка вставки новых связей:', result.error);
             throw result.error;
           }
         }
@@ -307,8 +341,8 @@ export const PostManagement = () => {
       setEditingPost(null);
       loadAllData(); // Перезагружаем данные
 
-    } catch (error) {
-      console.error('Ошибка обновления классификации поста:', error);
+    } catch (error: any) {
+      console.error('❌ Ошибка обновления классификации поста:', error);
       toast({
         title: "Ошибка",
         description: "Не удалось обновить классификацию поста",
@@ -326,7 +360,7 @@ export const PostManagement = () => {
           <div className="flex items-center justify-center space-y-2 flex-col">
             <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
             <span className="text-lg">Загрузка данных...</span>
-            <span className="text-sm text-gray-500">Получение постов и настроек</span>
+            <span className="text-sm text-gray-500">{debugInfo}</span>
           </div>
         </CardContent>
       </Card>
@@ -337,11 +371,13 @@ export const PostManagement = () => {
     return (
       <Card>
         <CardContent className="p-6">
-          <div className="flex items-center justify-center space-y-2 flex-col text-red-600">
+          <div className="flex items-center justify-center space-y-4 flex-col text-red-600">
             <AlertCircle className="h-8 w-8" />
             <span className="text-lg">Ошибка загрузки</span>
-            <span className="text-sm text-gray-500">{error}</span>
+            <span className="text-sm text-gray-500 max-w-md text-center">{error}</span>
+            <span className="text-xs text-gray-400 max-w-md text-center">{debugInfo}</span>
             <Button onClick={loadAllData} variant="outline" className="mt-4">
+              <RefreshCw className="mr-2 h-4 w-4" />
               Попробовать снова
             </Button>
           </div>
@@ -360,6 +396,10 @@ export const PostManagement = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="text-xs text-gray-500 bg-blue-50 p-2 rounded">
+            Отладка: {debugInfo}
+          </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -423,9 +463,9 @@ export const PostManagement = () => {
                 {filteredPosts.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                      {searchTerm || selectedSection || selectedMaterialType
-                        ? "Постов не найдено по заданным критериям" 
-                        : "Постов пока нет"
+                      {posts.length === 0 
+                        ? "Постов в базе данных не найдено" 
+                        : "Постов не найдено по заданным критериям"
                       }
                     </TableCell>
                   </TableRow>
