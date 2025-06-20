@@ -13,22 +13,6 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, serviceKey);
 
-// Helper function to verify password
-async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  try {
-    // Check if it's a plain text password (for backward compatibility)
-    if (password === hash) {
-      return true;
-    }
-    
-    // Use bcrypt to verify the password
-    return await bcrypt.compare(password, hash);
-  } catch (error) {
-    console.error('Password verification error:', error);
-    return false;
-  }
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -62,7 +46,12 @@ serve(async (req) => {
     }
 
     console.log('Admin found, verifying password');
-    const valid = await verifyPassword(password, data.password_hash);
+    console.log('Stored hash:', data.password_hash);
+    
+    // Verify password using bcrypt
+    const valid = await bcrypt.compare(password, data.password_hash);
+    
+    console.log('Password verification result:', valid);
     
     if (!valid) {
       console.log('Password verification failed');
