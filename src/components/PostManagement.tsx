@@ -19,11 +19,11 @@ interface Post {
   hashtags: string[];
   telegram_url: string;
   published_at: string;
-  sections?: Array<{
+  sections: Array<{
     id: string;
     name: string;
   }>;
-  material_types?: Array<{
+  material_types: Array<{
     id: string;
     name: string;
   }>;
@@ -57,94 +57,109 @@ export const PostManagement = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    loadData();
+    loadAllData();
   }, []);
 
-  const loadData = async () => {
+  const loadAllData = async () => {
     setIsLoading(true);
     setError(null);
     
     try {
-      console.log('Загрузка данных постов...');
+      console.log('Начинаем загрузку всех данных...');
       
-      // Загружаем посты
-      const { data: postsData, error: postsError } = await supabase
-        .from('posts')
-        .select('*')
-        .order('published_at', { ascending: false });
+      // Загружаем все данные параллельно
+      const [postsResult, sectionsResult, materialTypesResult] = await Promise.all([
+        supabase.from('posts').select('*').order('published_at', { ascending: false }),
+        supabase.from('sections').select('*').order('name'),
+        supabase.from('material_types').select('*').order('name')
+      ]);
 
-      if (postsError) {
-        console.error('Ошибка загрузки постов:', postsError);
-        throw postsError;
+      // Проверяем ошибки
+      if (postsResult.error) {
+        console.error('Ошибка загрузки постов:', postsResult.error);
+        throw postsResult.error;
+      }
+      if (sectionsResult.error) {
+        console.error('Ошибка загрузки разделов:', sectionsResult.error);
+        throw sectionsResult.error;
+      }
+      if (materialTypesResult.error) {
+        console.error('Ошибка загрузки типов материалов:', materialTypesResult.error);
+        throw materialTypesResult.error;
       }
 
-      console.log('Загружено постов:', postsData?.length || 0);
+      console.log('Загружено постов:', postsResult.data?.length || 0);
+      console.log('Загружено разделов:', sectionsResult.data?.length || 0);
+      console.log('Загружено типов материалов:', materialTypesResult.data?.length || 0);
 
-      // Для каждого поста загружаем связанные разделы и типы материалов
+      // Устанавливаем базовые данные
+      setSections(sectionsResult.data || []);
+      setMaterialTypes(materialTypesResult.data || []);
+
+      // Теперь загружаем связи для каждого поста
       const postsWithRelations = await Promise.all(
-        (postsData || []).map(async (post) => {
-          // Загружаем разделы для поста
-          const { data: postSections } = await supabase
-            .from('post_sections')
-            .select(`
-              sections!inner (
-                id,
-                name
-              )
-            `)
-            .eq('post_id', post.id);
+        (postsResult.data || []).map(async (post) => {
+          console.log('Загружаем связи для поста:', post.id);
+          
+          try {
+            // Загружаем разделы поста
+            const { data: postSectionsData, error: sectionsError } = await supabase
+              .from('post_sections')
+              .select(`
+                section_id,
+                sections!inner(id, name)
+              `)
+              .eq('post_id', post.id);
 
-          // Загружаем типы материалов для поста
-          const { data: postMaterialTypes } = await supabase
-            .from('post_material_types')
-            .select(`
-              material_types!inner (
-                id,
-                name
-              )
-            `)
-            .eq('post_id', post.id);
+            if (sectionsError) {
+              console.error('Ошибка загрузки разделов поста:', sectionsError);
+            }
 
-          return {
-            ...post,
-            sections: postSections?.map(ps => ps.sections).filter(Boolean) || [],
-            material_types: postMaterialTypes?.map(pmt => pmt.material_types).filter(Boolean) || []
-          };
+            // Загружаем типы материалов поста
+            const { data: postMaterialTypesData, error: typesError } = await supabase
+              .from('post_material_types')
+              .select(`
+                material_type_id,
+                material_types!inner(id, name)
+              `)
+              .eq('post_id', post.id);
+
+            if (typesError) {
+              console.error('Ошибка загрузки типов материалов поста:', typesError);
+            }
+
+            // Формируем массивы разделов и типов материалов
+            const postSections = (postSectionsData || [])
+              .map(ps => ps.sections)
+              .filter(Boolean);
+
+            const postMaterialTypes = (postMaterialTypesData || [])
+              .map(pmt => pmt.material_types)
+              .filter(Boolean);
+
+            console.log(`Пост ${post.id}: разделов ${postSections.length}, типов материалов ${postMaterialTypes.length}`);
+
+            return {
+              ...post,
+              sections: postSections,
+              material_types: postMaterialTypes
+            };
+          } catch (error) {
+            console.error('Ошибка загрузки связей поста:', error);
+            return {
+              ...post,
+              sections: [],
+              material_types: []
+            };
+          }
         })
       );
 
       setPosts(postsWithRelations);
-
-      // Загружаем разделы
-      const { data: sectionsData, error: sectionsError } = await supabase
-        .from('sections')
-        .select('*')
-        .order('name');
-
-      if (sectionsError) {
-        console.error('Ошибка загрузки разделов:', sectionsError);
-      } else {
-        setSections(sectionsData || []);
-        console.log('Загружено разделов:', sectionsData?.length || 0);
-      }
-
-      // Загружаем типы материалов
-      const { data: materialTypesData, error: materialTypesError } = await supabase
-        .from('material_types')
-        .select('*')
-        .order('name');
-
-      if (materialTypesError) {
-        console.error('Ошибка загрузки типов материалов:', materialTypesError);
-      } else {
-        setMaterialTypes(materialTypesData || []);
-        console.log('Загружено типов материалов:', materialTypesData?.length || 0);
-      }
-
-      console.log('Данные успешно загружены');
+      console.log('Все данные успешно загружены');
 
     } catch (error) {
-      console.error('Ошибка загрузки данных:', error);
+      console.error('Критическая ошибка загрузки данных:', error);
       setError('Не удалось загрузить данные. Проверьте подключение к базе данных.');
       toast({
         title: "Ошибка",
@@ -234,42 +249,53 @@ export const PostManagement = () => {
       console.log('Сохранение классификации для поста:', editingPost.id);
 
       // Удаляем старые связи
-      await Promise.all([
+      const [sectionsDelete, typesDelete] = await Promise.all([
         supabase.from('post_sections').delete().eq('post_id', editingPost.id),
         supabase.from('post_material_types').delete().eq('post_id', editingPost.id)
       ]);
 
-      // Добавляем новые связи с разделами
+      if (sectionsDelete.error) {
+        console.error('Ошибка удаления старых разделов:', sectionsDelete.error);
+        throw sectionsDelete.error;
+      }
+
+      if (typesDelete.error) {
+        console.error('Ошибка удаления старых типов материалов:', typesDelete.error);
+        throw typesDelete.error;
+      }
+
+      // Добавляем новые связи
+      const insertPromises = [];
+
       if (selectedSections.length > 0) {
         const sectionInserts = selectedSections.map(sectionId => ({
           post_id: editingPost.id,
           section_id: sectionId
         }));
         
-        const { error: sectionsError } = await supabase
-          .from('post_sections')
-          .insert(sectionInserts);
-        
-        if (sectionsError) {
-          console.error('Ошибка вставки разделов:', sectionsError);
-          throw sectionsError;
-        }
+        insertPromises.push(
+          supabase.from('post_sections').insert(sectionInserts)
+        );
       }
 
-      // Добавляем новые связи с типами материалов
       if (selectedMaterialTypes.length > 0) {
         const typeInserts = selectedMaterialTypes.map(typeId => ({
           post_id: editingPost.id,
           material_type_id: typeId
         }));
         
-        const { error: typesError } = await supabase
-          .from('post_material_types')
-          .insert(typeInserts);
-        
-        if (typesError) {
-          console.error('Ошибка вставки типов материалов:', typesError);
-          throw typesError;
+        insertPromises.push(
+          supabase.from('post_material_types').insert(typeInserts)
+        );
+      }
+
+      if (insertPromises.length > 0) {
+        const results = await Promise.all(insertPromises);
+        for (const result of results) {
+          if (result.error) {
+            console.error('Ошибка вставки новых связей:', result.error);
+            throw result.error;
+          }
         }
       }
 
@@ -279,7 +305,7 @@ export const PostManagement = () => {
       });
 
       setEditingPost(null);
-      loadData(); // Перезагружаем данные
+      loadAllData(); // Перезагружаем данные
 
     } catch (error) {
       console.error('Ошибка обновления классификации поста:', error);
@@ -315,7 +341,7 @@ export const PostManagement = () => {
             <AlertCircle className="h-8 w-8" />
             <span className="text-lg">Ошибка загрузки</span>
             <span className="text-sm text-gray-500">{error}</span>
-            <Button onClick={loadData} variant="outline" className="mt-4">
+            <Button onClick={loadAllData} variant="outline" className="mt-4">
               Попробовать снова
             </Button>
           </div>
