@@ -45,7 +45,8 @@ export const TelegramImport = () => {
       formData.append('file', file);
 
       const { data, error } = await supabase.functions.invoke('import-telegram-history', {
-        body: formData
+        body: formData,
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
 
       if (error) {
@@ -64,12 +65,18 @@ export const TelegramImport = () => {
       const fileInput = document.getElementById('file-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
 
-    } catch (error) {
+      // уведомляем другие компоненты об успешном импорте
+      window.dispatchEvent(new Event('posts-imported'));
+
+    } catch (error: any) {
       console.error('Import error:', error);
+      const message =
+        error?.message ??
+        (typeof error === 'string' ? error : 'Произошла ошибка при импорте данных');
       toast({
-        title: "Ошибка импорта",
-        description: error.message || "Произошла ошибка при импорте данных",
-        variant: "destructive",
+        title: 'Ошибка импорта',
+        description: message,
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);

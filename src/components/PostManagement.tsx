@@ -63,6 +63,9 @@ export const PostManagement = () => {
 
   useEffect(() => {
     loadData();
+    const handler = () => loadData();
+    window.addEventListener('posts-imported', handler);
+    return () => window.removeEventListener('posts-imported', handler);
   }, []);
 
   const loadData = async () => {
