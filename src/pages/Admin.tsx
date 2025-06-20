@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { AdminPanel } from '@/components/AdminPanel';
 import { AdminAuth } from '@/components/AdminAuth';
+import { ScrollToTop } from '@/components/ScrollToTop';
 
 const Admin = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -32,11 +33,21 @@ const Admin = () => {
 
   // Если не авторизован, показываем форму входа
   if (!isAuthenticated) {
-    return <AdminAuth onAuthenticated={handleAuthenticated} />;
+    return (
+      <>
+        <AdminAuth onAuthenticated={handleAuthenticated} />
+        <ScrollToTop />
+      </>
+    );
   }
 
   // Если авторизован, показываем админ-панель
-  return <AdminPanel />;
+  return (
+    <>
+      <AdminPanel />
+      <ScrollToTop />
+    </>
+  );
 };
 
 export default Admin;

@@ -70,145 +70,153 @@ export const AdminPanel = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <Tabs defaultValue="sync" className="max-w-6xl mx-auto">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="sync" className="flex items-center gap-2">
-            <Download className="h-4 w-4" />
-            Синхронизация
-          </TabsTrigger>
-          <TabsTrigger value="import" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Импорт истории
-          </TabsTrigger>
-          <TabsTrigger value="manage" className="flex items-center gap-2">
-            <Edit className="h-4 w-4" />
-            Посты
-          </TabsTrigger>
-          <TabsTrigger value="sections" className="flex items-center gap-2">
-            <Hash className="h-4 w-4" />
-            Разделы
-          </TabsTrigger>
-          <TabsTrigger value="types" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Типы материалов
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            Настройки
-          </TabsTrigger>
-        </TabsList>
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2 font-akrobat">Панель администратора</h1>
+          <p className="text-gray-600 font-pt-sans">Управление контентом базы знаний УниверсУм</p>
+        </div>
+        
+        <Tabs defaultValue="sync" className="max-w-6xl mx-auto">
+          <TabsList className="grid w-full grid-cols-6 bg-white border border-gray-200">
+            <TabsTrigger value="sync" className="flex items-center gap-2 text-gray-700 data-[state=active]:bg-universum-blue data-[state=active]:text-white">
+              <Download className="h-4 w-4" />
+              Синхронизация
+            </TabsTrigger>
+            <TabsTrigger value="import" className="flex items-center gap-2 text-gray-700 data-[state=active]:bg-universum-blue data-[state=active]:text-white">
+              <FileText className="h-4 w-4" />
+              Импорт истории
+            </TabsTrigger>
+            <TabsTrigger value="manage" className="flex items-center gap-2 text-gray-700 data-[state=active]:bg-universum-blue data-[state=active]:text-white">
+              <Edit className="h-4 w-4" />
+              Посты
+            </TabsTrigger>
+            <TabsTrigger value="sections" className="flex items-center gap-2 text-gray-700 data-[state=active]:bg-universum-blue data-[state=active]:text-white">
+              <Hash className="h-4 w-4" />
+              Разделы
+            </TabsTrigger>
+            <TabsTrigger value="types" className="flex items-center gap-2 text-gray-700 data-[state=active]:bg-universum-blue data-[state=active]:text-white">
+              <FileText className="h-4 w-4" />
+              Типы материалов
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2 text-gray-700 data-[state=active]:bg-universum-blue data-[state=active]:text-white">
+              <Settings className="h-4 w-4" />
+              Настройки
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="sync">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Download className="h-5 w-5" />
-                Синхронизация с Telegram ботом
-              </CardTitle>
-              <CardDescription>
-                Загрузка новых постов через Telegram бота (рекомендуется для текущих сообщений)
-              </CardDescription>
-            </CardHeader>
-            
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="channelId">ID или username канала</Label>
-                <Input
-                  id="channelId"
-                  placeholder="@your_channel или -1001234567890"
-                  value={channelId}
-                  onChange={(e) => setChannelId(e.target.value)}
-                />
-                <p className="text-sm text-gray-500">
-                  Введите username канала (например, @channelname) или его ID
-                </p>
-              </div>
+          <TabsContent value="sync">
+            <Card className="bg-white border border-gray-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-gray-900 font-akrobat">
+                  <Download className="h-5 w-5" />
+                  Синхронизация с Telegram ботом
+                </CardTitle>
+                <CardDescription className="text-gray-600 font-pt-sans">
+                  Загрузка новых постов через Telegram бота (рекомендуется для текущих сообщений)
+                </CardDescription>
+              </CardHeader>
+              
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="channelId" className="text-gray-700 font-pt-sans">ID или username канала</Label>
+                  <Input
+                    id="channelId"
+                    placeholder="@your_channel или -1001234567890"
+                    value={channelId}
+                    onChange={(e) => setChannelId(e.target.value)}
+                    className="bg-white border-gray-300 text-gray-900"
+                  />
+                  <p className="text-sm text-gray-500 font-pt-sans">
+                    Введите username канала (например, @channelname) или его ID
+                  </p>
+                </div>
 
-              <div className="space-y-2">
-                <Label>Дата начала загрузки</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !startDate && "text-muted-foreground"
-                      )}
-                    >
+                <div className="space-y-2">
+                  <Label className="text-gray-700 font-pt-sans">Дата начала загрузки</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal bg-white border-gray-300 text-gray-900 hover:bg-gray-50",
+                          !startDate && "text-gray-500"
+                        )}
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {startDate ? format(startDate, "dd.MM.yyyy") : "Выберите дату"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 bg-white border border-gray-200">
+                      <CalendarComponent
+                        mode="single"
+                        selected={startDate}
+                        onSelect={setStartDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <p className="text-sm text-gray-500 font-pt-sans">
+                    Посты будут загружены начиная с этой даты
+                  </p>
+                </div>
+
+                <Button 
+                  onClick={handleSyncPosts} 
+                  disabled={isLoading || !channelId.trim()}
+                  className="w-full bg-universum-blue hover:bg-universum-dark-blue text-white"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Синхронизация...
+                    </>
+                  ) : (
+                    <>
                       <Calendar className="mr-2 h-4 w-4" />
-                      {startDate ? format(startDate, "dd.MM.yyyy") : "Выберите дату"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <CalendarComponent
-                      mode="single"
-                      selected={startDate}
-                      onSelect={setStartDate}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                <p className="text-sm text-gray-500">
-                  Посты будут загружены начиная с этой даты
-                </p>
+                      Загрузить новые посты
+                    </>
+                  )}
+                </Button>
+
+                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                  <h4 className="font-medium text-green-900 mb-2 font-akrobat">Рекомендуется для:</h4>
+                  <ul className="text-sm text-green-800 space-y-1 list-disc list-inside font-pt-sans">
+                    <li>Загрузки новых сообщений</li>
+                    <li>Регулярной синхронизации</li>
+                    <li>Автоматического обновления контента</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="import">
+            <TelegramImport />
+          </TabsContent>
+
+          <TabsContent value="manage">
+            <PostManagement />
+          </TabsContent>
+
+          <TabsContent value="sections">
+            <SectionManagement />
+          </TabsContent>
+
+          <TabsContent value="types">
+            <MaterialTypeManagement />
+          </TabsContent>
+
+          <TabsContent value="settings">
+            <div className="space-y-6">
+              <div className="bg-white rounded-lg p-6 border border-gray-200">
+                <h3 className="text-lg font-medium mb-4 text-gray-900 font-akrobat">Безопасность</h3>
+                <PasswordChange />
               </div>
-
-              <Button 
-                onClick={handleSyncPosts} 
-                disabled={isLoading || !channelId.trim()}
-                className="w-full"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Синхронизация...
-                  </>
-                ) : (
-                  <>
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Загрузить новые посты
-                  </>
-                )}
-              </Button>
-
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h4 className="font-medium text-green-900 mb-2">Рекомендуется для:</h4>
-                <ul className="text-sm text-green-800 space-y-1 list-disc list-inside">
-                  <li>Загрузки новых сообщений</li>
-                  <li>Регулярной синхронизации</li>
-                  <li>Автоматического обновления контента</li>
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="import">
-          <TelegramImport />
-        </TabsContent>
-
-        <TabsContent value="manage">
-          <PostManagement />
-        </TabsContent>
-
-        <TabsContent value="sections">
-          <SectionManagement />
-        </TabsContent>
-
-        <TabsContent value="types">
-          <MaterialTypeManagement />
-        </TabsContent>
-
-        <TabsContent value="settings">
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium mb-4">Безопасность</h3>
-              <PasswordChange />
             </div>
-          </div>
-        </TabsContent>
-      </Tabs>
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 };

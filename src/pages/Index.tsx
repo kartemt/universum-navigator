@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,6 +6,7 @@ import { FilterSidebar } from '@/components/FilterSidebar';
 import { Header } from '@/components/Header';
 import { SearchBar } from '@/components/SearchBar';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { ScrollToTop } from '@/components/ScrollToTop';
 
 interface Post {
   id: string;
@@ -179,6 +179,8 @@ const Index = () => {
           </main>
         </div>
       </div>
+      
+      <ScrollToTop />
     </div>
   );
 };

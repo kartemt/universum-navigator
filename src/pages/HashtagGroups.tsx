@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Header } from '@/components/Header';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { ScrollToTop } from '@/components/ScrollToTop';
 
 interface Post {
   id: string;
@@ -79,6 +80,7 @@ const HashtagGroups = () => {
           </div>
         )}
       </div>
+      <ScrollToTop />
     </div>
   );
 };
