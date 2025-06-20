@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +14,7 @@ export const PasswordChange = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const ADMIN_EMAIL = 'admin@example.com';
+  const ADMIN_EMAIL = 'admin@universum.com';
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
