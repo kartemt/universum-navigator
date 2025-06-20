@@ -105,7 +105,7 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-universum-dark-blue via-universum-blue to-universum-teal">
+    <div className="min-h-screen bg-gradient-to-br from-universum-dark-blue via-universum-blue to-universum-teal font-pt-sans">
       <Header />
       
       <div className="container mx-auto px-4 py-8">
@@ -114,10 +114,10 @@ const Index = () => {
           <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/30 max-w-4xl mx-auto relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-universum-teal/10 to-universum-orange/10"></div>
             <div className="relative z-10">
-              <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-universum-dark-blue via-universum-blue to-universum-teal bg-clip-text text-transparent mb-4">
+              <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-universum-dark-blue via-universum-blue to-universum-teal bg-clip-text text-transparent mb-4 font-akrobat">
                 База знаний УниверсУм
               </h1>
-              <p className="text-lg text-universum-gray leading-relaxed max-w-2xl mx-auto">
+              <p className="text-lg text-universum-gray leading-relaxed max-w-2xl mx-auto font-pt-sans">
                 Найдите полезный контент из телеграм-канала @UniversUm_R: стратегии, кейсы, инструменты развития и многое другое
               </p>
             </div>
@@ -155,12 +155,12 @@ const Index = () => {
                     <div className="w-16 h-16 bg-gradient-to-r from-universum-orange to-universum-accent-orange rounded-full mx-auto mb-6 flex items-center justify-center shadow-lg">
                       <span className="text-2xl">🔍</span>
                     </div>
-                    <h3 className="text-xl font-semibold text-universum-dark-blue mb-2">
+                    <h3 className="text-xl font-semibold text-universum-dark-blue mb-2 font-akrobat">
                       {searchQuery || selectedSections.length > 0 || selectedMaterialTypes.length > 0
                         ? "Ничего не найдено"
                         : "Посты загружаются"}
                     </h3>
-                    <p className="text-universum-gray">
+                    <p className="text-universum-gray font-pt-sans">
                       {searchQuery || selectedSections.length > 0 || selectedMaterialTypes.length > 0
                         ? "Попробуйте изменить параметры поиска"
                         : "Контент появится здесь после загрузки"}
@@ -173,7 +173,7 @@ const Index = () => {
                 {/* Stats bar */}
                 <div className="bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-white/30 relative overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-r from-universum-teal/5 to-universum-orange/5"></div>
-                  <p className="text-sm text-universum-gray relative z-10">
+                  <p className="text-sm text-universum-gray relative z-10 font-pt-sans">
                     Найдено материалов: <span className="font-semibold text-universum-blue">{posts.length}</span>
                   </p>
                 </div>

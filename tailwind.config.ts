@@ -19,6 +19,10 @@ export default {
 			}
 		},
 		extend: {
+			fontFamily: {
+				'akrobat': ['Akrobat', 'Arial', 'sans-serif'],
+				'pt-sans': ['PT Sans', 'Arial', 'sans-serif'],
+			},
 			colors: {
 				// UniversUm brand colors from palette
 				'universum-teal': '#4dd0e1',
