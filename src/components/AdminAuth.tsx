@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Lock, Loader2, Rocket } from 'lucide-react';
+import { Lock, Loader2, Rocket, Shield } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useSecurity } from '@/hooks/useSecurity';
 
 interface AdminAuthProps {
   onAuthenticated: () => void;
@@ -17,9 +18,30 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { checkRateLimit, isBlocked, fingerprint } = useSecurity();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Security check: rate limiting
+    if (!checkRateLimit(`admin_login_${fingerprint}`)) {
+      toast({
+        title: 'Слишком много попыток',
+        description: 'Попробуйте войти позже',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (isBlocked) {
+      toast({
+        title: 'Доступ заблокирован',
+        description: 'Обратитесь к администратору',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -28,7 +50,8 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
       const { data, error } = await supabase.functions.invoke('verify-admin', {
         body: { 
           email: email.trim(),
-          password: password 
+          password: password,
+          fingerprint: fingerprint // Add fingerprint for additional security
         }
       });
 
@@ -40,6 +63,7 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
       if (data?.success) {
         sessionStorage.setItem('admin_authenticated', 'true');
         sessionStorage.setItem('admin_email', email);
+        sessionStorage.setItem('admin_fingerprint', fingerprint);
         onAuthenticated();
         toast({
           title: 'Доступ разрешен',
@@ -83,6 +107,12 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
           <CardDescription className="text-universum-gray text-lg">
             Панель управления базой знаний
           </CardDescription>
+          
+          {/* Security indicator */}
+          <div className="flex items-center justify-center gap-2 text-xs text-universum-gray mt-2">
+            <Shield className="h-3 w-3" />
+            Защищённый вход
+          </div>
         </CardHeader>
         
         <CardContent className="pb-8">
@@ -99,6 +129,7 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
+                disabled={isBlocked}
               />
             </div>
 
@@ -114,12 +145,13 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
+                disabled={isBlocked}
               />
             </div>
 
             <Button 
               type="submit" 
-              disabled={isLoading || !email.trim() || !password.trim()}
+              disabled={isLoading || !email.trim() || !password.trim() || isBlocked}
               className="w-full bg-universum-blue hover:bg-universum-dark-blue text-white font-semibold py-3 transition-all duration-200"
             >
               {isLoading ? (

@@ -1,9 +1,12 @@
+
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Header } from '@/components/Header';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ScrollToTop } from '@/components/ScrollToTop';
+import { SecurityWrapper } from '@/components/SecurityWrapper';
+import { useSecurity } from '@/hooks/useSecurity';
 
 interface Post {
   id: string;
@@ -13,9 +16,15 @@ interface Post {
 }
 
 const HashtagGroups = () => {
+  const { checkRateLimit, fingerprint } = useSecurity();
+
   const { data: posts = [], isLoading } = useQuery({
     queryKey: ['hashtag-groups'],
     queryFn: async () => {
+      if (!checkRateLimit(`hashtags_${fingerprint}`)) {
+        throw new Error('Rate limit exceeded');
+      }
+
       const { data, error } = await supabase
         .from('posts')
         .select('id, title, hashtags, telegram_url, published_at')
@@ -47,41 +56,43 @@ const HashtagGroups = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <Header />
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-6">Хештеги</h1>
-        {sortedHashtags.length === 0 ? (
-          <p className="text-gray-500">Хештеги не найдены</p>
-        ) : (
-          <div className="space-y-8">
-            {sortedHashtags.map((tag) => (
-              <div key={tag} className="bg-white shadow rounded-lg p-4">
-                <h2 className="text-xl font-semibold mb-2">
-                  #{tag}{' '}
-                  <span className="text-sm text-gray-500">({hashtagMap[tag].length})</span>
-                </h2>
-                <ul className="list-disc pl-5 space-y-1">
-                  {hashtagMap[tag].map((post) => (
-                    <li key={post.id}>
-                      <a
-                        href={post.telegram_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline"
-                      >
-                        {post.title}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        )}
+    <SecurityWrapper protectContent={true}>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        <Header />
+        <div className="container mx-auto px-4 py-8">
+          <h1 className="text-2xl font-bold mb-6">Хештеги</h1>
+          {sortedHashtags.length === 0 ? (
+            <p className="text-gray-500">Хештеги не найдены</p>
+          ) : (
+            <div className="space-y-8">
+              {sortedHashtags.map((tag) => (
+                <div key={tag} className="bg-white shadow rounded-lg p-4">
+                  <h2 className="text-xl font-semibold mb-2">
+                    #{tag}{' '}
+                    <span className="text-sm text-gray-500">({hashtagMap[tag].length})</span>
+                  </h2>
+                  <ul className="list-disc pl-5 space-y-1">
+                    {hashtagMap[tag].map((post) => (
+                      <li key={post.id}>
+                        <a
+                          href={post.telegram_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline"
+                        >
+                          {post.title}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <ScrollToTop />
       </div>
-      <ScrollToTop />
-    </div>
+    </SecurityWrapper>
   );
 };
 

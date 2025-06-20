@@ -1,14 +1,34 @@
+
+User-agent: *
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+Disallow: /*.json$
+Disallow: /*?*
+
+# Allow specific bots only for main content
 User-agent: Googlebot
 Allow: /
+Disallow: /admin
 
 User-agent: Bingbot
 Allow: /
+Disallow: /admin
 
-User-agent: Twitterbot
-Allow: /
+# Block aggressive crawlers
+User-agent: SemrushBot
+Disallow: /
 
-User-agent: facebookexternalhit
-Allow: /
+User-agent: AhrefsBot
+Disallow: /
 
-User-agent: *
-Allow: /
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+# Crawl delay for allowed bots
+Crawl-delay: 10
+
+Sitemap: https://your-domain.com/sitemap.xml

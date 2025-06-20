@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,6 +8,8 @@ import { Header } from '@/components/Header';
 import { SearchBar } from '@/components/SearchBar';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ScrollToTop } from '@/components/ScrollToTop';
+import { SecurityWrapper } from '@/components/SecurityWrapper';
+import { useSecurity } from '@/hooks/useSecurity';
 
 interface Post {
   id: string;
@@ -33,10 +36,16 @@ const Index = () => {
   const [selectedSections, setSelectedSections] = useState<string[]>([]);
   const [selectedMaterialTypes, setSelectedMaterialTypes] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const { checkRateLimit, fingerprint } = useSecurity();
 
   const { data: posts = [], isLoading } = useQuery({
     queryKey: ['posts', selectedSections, selectedMaterialTypes, searchQuery],
     queryFn: async () => {
+      // Rate limiting for data requests
+      if (!checkRateLimit(`posts_${fingerprint}`)) {
+        throw new Error('Rate limit exceeded');
+      }
+
       let query = supabase
         .from('posts')
         .select(`
@@ -77,6 +86,10 @@ const Index = () => {
   const { data: sections = [] } = useQuery({
     queryKey: ['sections'],
     queryFn: async () => {
+      if (!checkRateLimit(`sections_${fingerprint}`)) {
+        throw new Error('Rate limit exceeded');
+      }
+
       const { data, error } = await supabase
         .from('sections')
         .select('*')
@@ -90,6 +103,10 @@ const Index = () => {
   const { data: materialTypes = [] } = useQuery({
     queryKey: ['material_types'],
     queryFn: async () => {
+      if (!checkRateLimit(`material_types_${fingerprint}`)) {
+        throw new Error('Rate limit exceeded');
+      }
+
       const { data, error } = await supabase
         .from('material_types')
         .select('*')
@@ -105,83 +122,85 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-universum-dark-blue via-universum-blue to-universum-teal font-pt-sans">
-      <Header />
-      
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <SearchBar 
-            value={searchQuery} 
-            onChange={setSearchQuery}
-            placeholder="Поиск по заголовкам и содержимому..."
-          />
-        </div>
+    <SecurityWrapper protectContent={true}>
+      <div className="min-h-screen bg-gradient-to-br from-universum-dark-blue via-universum-blue to-universum-teal font-pt-sans">
+        <Header />
+        
+        <div className="container mx-auto px-4 py-8">
+          <div className="mb-8">
+            <SearchBar 
+              value={searchQuery} 
+              onChange={setSearchQuery}
+              placeholder="Поиск по заголовкам и содержимому..."
+            />
+          </div>
 
-        <div className="flex flex-col lg:flex-row gap-8">
-          <aside className="lg:w-80">
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/30 overflow-hidden">
-              <FilterSidebar
-                sections={sections}
-                materialTypes={materialTypes}
-                selectedSections={selectedSections}
-                selectedMaterialTypes={selectedMaterialTypes}
-                onSectionsChange={setSelectedSections}
-                onMaterialTypesChange={setSelectedMaterialTypes}
-              />
-            </div>
-          </aside>
+          <div className="flex flex-col lg:flex-row gap-8">
+            <aside className="lg:w-80">
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/30 overflow-hidden">
+                <FilterSidebar
+                  sections={sections}
+                  materialTypes={materialTypes}
+                  selectedSections={selectedSections}
+                  selectedMaterialTypes={selectedMaterialTypes}
+                  onSectionsChange={setSelectedSections}
+                  onMaterialTypesChange={setSelectedMaterialTypes}
+                />
+              </div>
+            </aside>
 
-          <main className="flex-1">
-            {posts.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-12 shadow-xl border border-white/30 max-w-md mx-auto relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-r from-universum-orange/10 to-universum-teal/10"></div>
-                  <div className="relative z-10">
-                    <div className="w-16 h-16 bg-gradient-to-r from-universum-orange to-universum-accent-orange rounded-full mx-auto mb-6 flex items-center justify-center shadow-lg">
-                      <span className="text-2xl">🔍</span>
+            <main className="flex-1">
+              {posts.length === 0 ? (
+                <div className="text-center py-16">
+                  <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-12 shadow-xl border border-white/30 max-w-md mx-auto relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-universum-orange/10 to-universum-teal/10"></div>
+                    <div className="relative z-10">
+                      <div className="w-16 h-16 bg-gradient-to-r from-universum-orange to-universum-accent-orange rounded-full mx-auto mb-6 flex items-center justify-center shadow-lg">
+                        <span className="text-2xl">🔍</span>
+                      </div>
+                      <h3 className="text-xl font-semibold text-universum-dark-blue mb-2 font-akrobat">
+                        {searchQuery || selectedSections.length > 0 || selectedMaterialTypes.length > 0
+                          ? "Ничего не найдено"
+                          : "Посты загружаются"}
+                      </h3>
+                      <p className="text-universum-gray font-pt-sans">
+                        {searchQuery || selectedSections.length > 0 || selectedMaterialTypes.length > 0
+                          ? "Попробуйте изменить параметры поиска"
+                          : "Контент появится здесь после загрузки"}
+                      </p>
                     </div>
-                    <h3 className="text-xl font-semibold text-universum-dark-blue mb-2 font-akrobat">
-                      {searchQuery || selectedSections.length > 0 || selectedMaterialTypes.length > 0
-                        ? "Ничего не найдено"
-                        : "Посты загружаются"}
-                    </h3>
-                    <p className="text-universum-gray font-pt-sans">
-                      {searchQuery || selectedSections.length > 0 || selectedMaterialTypes.length > 0
-                        ? "Попробуйте изменить параметры поиска"
-                        : "Контент появится здесь после загрузки"}
-                    </p>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Stats bar */}
-                <div className="bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-white/30 relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-r from-universum-teal/5 to-universum-orange/5"></div>
-                  <p className="text-sm text-universum-gray relative z-10 font-pt-sans">
-                    Найдено материалов: <span className="font-semibold text-universum-blue">{posts.length}</span>
-                  </p>
-                </div>
-                
-                {/* Posts grid */}
-                <div className="grid gap-6">
-                  {posts.map((post) => (
-                    <div key={post.id} className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/30 overflow-hidden hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] relative group">
-                      <div className="absolute inset-0 bg-gradient-to-r from-universum-teal/5 to-universum-orange/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                      <div className="relative z-10">
-                        <PostCard post={post} />
+              ) : (
+                <div className="space-y-6">
+                  {/* Stats bar */}
+                  <div className="bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-white/30 relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-universum-teal/5 to-universum-orange/5"></div>
+                    <p className="text-sm text-universum-gray relative z-10 font-pt-sans">
+                      Найдено материалов: <span className="font-semibold text-universum-blue">{posts.length}</span>
+                    </p>
+                  </div>
+                  
+                  {/* Posts grid */}
+                  <div className="grid gap-6">
+                    {posts.map((post) => (
+                      <div key={post.id} className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/30 overflow-hidden hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] relative group">
+                        <div className="absolute inset-0 bg-gradient-to-r from-universum-teal/5 to-universum-orange/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        <div className="relative z-10">
+                          <PostCard post={post} />
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </main>
+              )}
+            </main>
+          </div>
         </div>
+        
+        <ScrollToTop />
       </div>
-      
-      <ScrollToTop />
-    </div>
+    </SecurityWrapper>
   );
 };
 
