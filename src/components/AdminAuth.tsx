@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Lock, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import bcrypt from 'bcryptjs';
 
 interface AdminAuthProps {
   onAuthenticated: () => void;
@@ -15,33 +17,48 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const ADMIN_EMAIL = 'admin@example.com';
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Имитируем проверку пароля
-    setTimeout(() => {
-      // Получаем сохраненный пароль или используем дефолтный
-      const storedPassword = sessionStorage.getItem('admin_password') || 'admin123';
-      
-      if (password === storedPassword) {
-        // Сохраняем состояние авторизации в sessionStorage
+    try {
+      const { data, error } = await supabase
+        .from('admins')
+        .select('password_hash')
+        .eq('email', ADMIN_EMAIL)
+        .single();
+
+      if (error || !data) {
+        throw new Error('Не удалось проверить пароль');
+      }
+
+      const isValid = await bcrypt.compare(password, data.password_hash);
+      if (isValid) {
         sessionStorage.setItem('admin_authenticated', 'true');
         onAuthenticated();
         toast({
-          title: "Доступ разрешен",
-          description: "Добро пожаловать в админ-панель",
+          title: 'Доступ разрешен',
+          description: 'Добро пожаловать в админ-панель',
         });
       } else {
         toast({
-          title: "Неверный пароль",
-          description: "Попробуйте еще раз",
-          variant: "destructive",
+          title: 'Неверный пароль',
+          description: 'Попробуйте еще раз',
+          variant: 'destructive',
         });
       }
+    } catch (err) {
+      console.error('Auth error:', err);
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось выполнить проверку',
+        variant: 'destructive',
+      });
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
   return (
@@ -87,11 +104,6 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
             </Button>
           </form>
 
-          <div className="mt-6 p-4 bg-amber-50 rounded-lg border border-amber-200">
-            <p className="text-sm text-amber-800">
-              <strong>Для демонстрации пароль:</strong> admin123
-            </p>
-          </div>
         </CardContent>
       </Card>
     </div>

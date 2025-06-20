@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Key } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import bcrypt from 'bcryptjs';
 
 export const PasswordChange = () => {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -13,6 +15,7 @@ export const PasswordChange = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const ADMIN_EMAIL = 'admin@example.com';
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,22 +41,29 @@ export const PasswordChange = () => {
     setIsLoading(true);
 
     try {
-      // Получаем текущий пароль из sessionStorage
-      const storedPassword = sessionStorage.getItem('admin_password') || 'admin123';
-      
-      if (currentPassword !== storedPassword) {
+      const verifyRes = await supabase.functions.invoke('verify-admin', {
+        body: { email: ADMIN_EMAIL, password: currentPassword },
+      });
+
+      if (verifyRes.error || !verifyRes.data?.success) {
         throw new Error('Неверный текущий пароль');
       }
 
-      // Обновляем пароль в sessionStorage
-      sessionStorage.setItem('admin_password', newPassword);
+      const hashed = await bcrypt.hash(newPassword, 10);
 
-      toast({
-        title: "Успешно",
-        description: "Пароль успешно изменен",
+      const updateRes = await supabase.functions.invoke('update-admin-password', {
+        body: { email: ADMIN_EMAIL, passwordHash: hashed },
       });
 
-      // Очищаем форму
+      if (updateRes.error || !updateRes.data?.success) {
+        throw new Error('Не удалось обновить пароль');
+      }
+
+      toast({
+        title: 'Успешно',
+        description: 'Пароль успешно изменен',
+      });
+
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -61,9 +71,9 @@ export const PasswordChange = () => {
     } catch (error) {
       console.error('Password change error:', error);
       toast({
-        title: "Ошибка",
-        description: error.message || "Не удалось изменить пароль",
-        variant: "destructive",
+        title: 'Ошибка',
+        description: (error as Error).message || 'Не удалось изменить пароль',
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
