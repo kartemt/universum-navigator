@@ -13,7 +13,7 @@ interface AdminAuthProps {
 }
 
 export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
-  const [email, setEmail] = useState('admin@universum.com');
+  const [email, setEmail] = useState('kartem2001@yahoo.com');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -84,7 +84,7 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@universum.com"
+                placeholder="kartem2001@yahoo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -121,7 +121,7 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
 
           <div className="mt-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
             <strong>Данные для входа:</strong><br />
-            Email: admin@universum.com<br />
+            Email: kartem2001@yahoo.com<br />
             Пароль: admin123
           </div>
         </CardContent>
