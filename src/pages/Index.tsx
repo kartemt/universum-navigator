@@ -109,21 +109,6 @@ const Index = () => {
       <Header />
       
       <div className="container mx-auto px-4 py-8">
-        {/* Hero Section */}
-        <div className="text-center mb-12">
-          <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/30 max-w-4xl mx-auto relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-universum-teal/10 to-universum-orange/10"></div>
-            <div className="relative z-10">
-              <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-universum-dark-blue via-universum-blue to-universum-teal bg-clip-text text-transparent mb-4 font-akrobat">
-                База знаний УниверсУм
-              </h1>
-              <p className="text-lg text-universum-gray leading-relaxed max-w-2xl mx-auto font-pt-sans">
-                Найдите полезный контент из телеграм-канала @UniversUm_R: стратегии, кейсы, инструменты развития и многое другое
-              </p>
-            </div>
-          </div>
-        </div>
-
         <div className="mb-8">
           <SearchBar 
             value={searchQuery} 

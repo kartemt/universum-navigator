@@ -25,20 +25,16 @@ export const Header = () => {
               </div>
             </div>
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-universum-dark-blue via-universum-blue to-universum-teal bg-clip-text text-transparent font-akrobat">
+              <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-universum-dark-blue via-universum-blue to-universum-teal bg-clip-text text-transparent font-akrobat">
                 УниверсУм знаний
               </h1>
-              <p className="text-sm text-universum-gray font-medium font-pt-sans">
-                Автоматическая классификация полезного контента
+              <p className="text-xs md:text-sm text-universum-gray font-medium font-pt-sans max-w-2xl">
+                найдите полезный контент из телеграм-канала @UniversUm_R: стратегии, кейсы, инструменты развития и многое другое
               </p>
             </div>
           </div>
           
           <div className="flex items-center space-x-6">
-            <div className="hidden md:flex items-center space-x-2 text-sm text-universum-gray font-pt-sans">
-              <Search className="h-4 w-4 text-universum-teal" />
-              <span>Поиск и фильтрация материалов</span>
-            </div>
             <button
               onClick={() => navigate('/hashtags')}
               className="px-4 py-2 bg-gradient-to-r from-universum-orange to-universum-accent-orange text-white font-medium rounded-lg hover:shadow-lg transition-all duration-200 hover:scale-105 font-pt-sans"
