@@ -19,17 +19,13 @@ interface Post {
   hashtags: string[];
   telegram_url: string;
   published_at: string;
-  post_sections: Array<{
-    sections: {
-      id: string;
-      name: string;
-    };
+  sections?: Array<{
+    id: string;
+    name: string;
   }>;
-  post_material_types: Array<{
-    material_types: {
-      id: string;
-      name: string;
-    };
+  material_types?: Array<{
+    id: string;
+    name: string;
   }>;
 }
 
@@ -52,7 +48,6 @@ export const PostManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSection, setSelectedSection] = useState<string>('');
   const [selectedMaterialType, setSelectedMaterialType] = useState<string>('');
-  const [allHashtags, setAllHashtags] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [selectedSections, setSelectedSections] = useState<string[]>([]);
@@ -63,9 +58,6 @@ export const PostManagement = () => {
 
   useEffect(() => {
     loadData();
-    const handler = () => loadData();
-    window.addEventListener('posts-imported', handler);
-    return () => window.removeEventListener('posts-imported', handler);
   }, []);
 
   const loadData = async () => {
@@ -86,24 +78,37 @@ export const PostManagement = () => {
         throw postsError;
       }
 
-      // Для каждого поста загружаем связи отдельно
+      console.log('Загружено постов:', postsData?.length || 0);
+
+      // Для каждого поста загружаем связанные разделы и типы материалов
       const postsWithRelations = await Promise.all(
         (postsData || []).map(async (post) => {
-          const [postSectionsResult, postMaterialTypesResult] = await Promise.all([
-            supabase
-              .from('post_sections')
-              .select('sections(id, name)')
-              .eq('post_id', post.id),
-            supabase
-              .from('post_material_types')
-              .select('material_types(id, name)')
-              .eq('post_id', post.id)
-          ]);
+          // Загружаем разделы для поста
+          const { data: postSections } = await supabase
+            .from('post_sections')
+            .select(`
+              sections!inner (
+                id,
+                name
+              )
+            `)
+            .eq('post_id', post.id);
+
+          // Загружаем типы материалов для поста
+          const { data: postMaterialTypes } = await supabase
+            .from('post_material_types')
+            .select(`
+              material_types!inner (
+                id,
+                name
+              )
+            `)
+            .eq('post_id', post.id);
 
           return {
             ...post,
-            post_sections: postSectionsResult.data || [],
-            post_material_types: postMaterialTypesResult.data || []
+            sections: postSections?.map(ps => ps.sections).filter(Boolean) || [],
+            material_types: postMaterialTypes?.map(pmt => pmt.material_types).filter(Boolean) || []
           };
         })
       );
@@ -120,6 +125,7 @@ export const PostManagement = () => {
         console.error('Ошибка загрузки разделов:', sectionsError);
       } else {
         setSections(sectionsData || []);
+        console.log('Загружено разделов:', sectionsData?.length || 0);
       }
 
       // Загружаем типы материалов
@@ -132,27 +138,10 @@ export const PostManagement = () => {
         console.error('Ошибка загрузки типов материалов:', materialTypesError);
       } else {
         setMaterialTypes(materialTypesData || []);
+        console.log('Загружено типов материалов:', materialTypesData?.length || 0);
       }
 
-      // Собираем все уникальные хештеги из постов
-      const hashtagsSet = new Set<string>();
-      postsWithRelations.forEach(post => {
-        if (post.hashtags && Array.isArray(post.hashtags)) {
-          post.hashtags.forEach(tag => {
-            if (tag && typeof tag === 'string') {
-              hashtagsSet.add(tag);
-            }
-          });
-        }
-      });
-      setAllHashtags(Array.from(hashtagsSet).sort());
-
-      console.log('Данные успешно загружены:', {
-        posts: postsWithRelations.length,
-        sections: sectionsData?.length || 0,
-        materialTypes: materialTypesData?.length || 0,
-        hashtags: hashtagsSet.size
-      });
+      console.log('Данные успешно загружены');
 
     } catch (error) {
       console.error('Ошибка загрузки данных:', error);
@@ -205,10 +194,10 @@ export const PostManagement = () => {
       post.content.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesSection = !selectedSection || 
-      post.post_sections.some(ps => ps.sections?.id === selectedSection);
+      post.sections?.some(s => s.id === selectedSection);
     
     const matchesMaterialType = !selectedMaterialType ||
-      post.post_material_types.some(pmt => pmt.material_types?.id === selectedMaterialType);
+      post.material_types?.some(mt => mt.id === selectedMaterialType);
     
     return matchesSearch && matchesSection && matchesMaterialType;
   });
@@ -217,8 +206,8 @@ export const PostManagement = () => {
     const { autoSections, autoMaterialTypes } = autoClassifyPost(post);
     
     setEditingPost(post);
-    setSelectedSections(post.post_sections?.map(ps => ps.sections?.id).filter(Boolean) || autoSections);
-    setSelectedMaterialTypes(post.post_material_types?.map(pmt => pmt.material_types?.id).filter(Boolean) || autoMaterialTypes);
+    setSelectedSections(post.sections?.map(s => s.id) || autoSections);
+    setSelectedMaterialTypes(post.material_types?.map(mt => mt.id) || autoMaterialTypes);
   };
 
   const handleSectionToggle = (sectionId: string) => {
@@ -425,24 +414,24 @@ export const PostManagement = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {post.post_sections?.map(ps => ps.sections && (
-                            <Badge key={ps.sections.id} variant="secondary" className="text-xs">
-                              {ps.sections.name}
+                          {post.sections?.map(section => (
+                            <Badge key={section.id} variant="secondary" className="text-xs">
+                              {section.name}
                             </Badge>
                           ))}
-                          {(!post.post_sections || post.post_sections.length === 0) && (
+                          {(!post.sections || post.sections.length === 0) && (
                             <span className="text-xs text-gray-400">Не назначен</span>
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {post.post_material_types?.map(pmt => pmt.material_types && (
-                            <Badge key={pmt.material_types.id} variant="outline" className="text-xs">
-                              {pmt.material_types.name}
+                          {post.material_types?.map(type => (
+                            <Badge key={type.id} variant="outline" className="text-xs">
+                              {type.name}
                             </Badge>
                           ))}
-                          {(!post.post_material_types || post.post_material_types.length === 0) && (
+                          {(!post.material_types || post.material_types.length === 0) && (
                             <span className="text-xs text-gray-400">Не назначен</span>
                           )}
                         </div>
