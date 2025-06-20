@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Download, Calendar, FileText, Settings, Edit } from 'lucide-react';
+import { Loader2, Download, Calendar, FileText, Settings, Edit, Hash } from 'lucide-react';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
@@ -14,6 +14,8 @@ import { cn } from '@/lib/utils';
 import { TelegramImport } from './TelegramImport';
 import { PasswordChange } from './PasswordChange';
 import { PostManagement } from './PostManagement';
+import { SectionManagement } from './SectionManagement';
+import { MaterialTypeManagement } from './MaterialTypeManagement';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export const AdminPanel = () => {
@@ -70,10 +72,10 @@ export const AdminPanel = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <Tabs defaultValue="sync" className="max-w-6xl mx-auto">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="sync" className="flex items-center gap-2">
             <Download className="h-4 w-4" />
-            Синхронизация с ботом
+            Синхронизация
           </TabsTrigger>
           <TabsTrigger value="import" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
@@ -81,7 +83,15 @@ export const AdminPanel = () => {
           </TabsTrigger>
           <TabsTrigger value="manage" className="flex items-center gap-2">
             <Edit className="h-4 w-4" />
-            Управление постами
+            Посты
+          </TabsTrigger>
+          <TabsTrigger value="sections" className="flex items-center gap-2">
+            <Hash className="h-4 w-4" />
+            Разделы
+          </TabsTrigger>
+          <TabsTrigger value="types" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Типы материалов
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
@@ -180,6 +190,14 @@ export const AdminPanel = () => {
 
         <TabsContent value="manage">
           <PostManagement />
+        </TabsContent>
+
+        <TabsContent value="sections">
+          <SectionManagement />
+        </TabsContent>
+
+        <TabsContent value="types">
+          <MaterialTypeManagement />
         </TabsContent>
 
         <TabsContent value="settings">
