@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -97,20 +98,11 @@ serve(async (req) => {
     console.log(`Found ${sections?.length} sections and ${materialTypes?.length} material types`);
 
     // Определяем дату начала для поиска постов
-    const fromTimestamp = fromDate ? Math.floor(new Date(fromDate).getTime() / 1000) : 0;
+    const fromTimestamp = fromDate ? Math.floor(new Date(fromDate).getTime() / 1000) : Math.floor((Date.now() - 24 * 60 * 60 * 1000) / 1000);
     console.log(`Searching for posts from timestamp: ${fromTimestamp} (${new Date(fromTimestamp * 1000).toISOString()})`);
 
-    // Получаем последний сохраненный пост для определения стартовой точки
-    const { data: lastPost } = await supabase
-      .from('posts')
-      .select('telegram_message_id')
-      .order('telegram_message_id', { ascending: false })
-      .limit(1)
-      .single();
-
-    // ИЗМЕНЕНО: Теперь бот работает только с новыми сообщениями
-    // Используем getUpdates только для получения недавних обновлений
-    console.log('Using bot only for recent updates (new messages)...');
+    // Получаем обновления с большим лимитом и правильными параметрами
+    console.log('Fetching recent updates from Telegram...');
     
     const updatesUrl = `https://api.telegram.org/bot${telegramBotToken}/getUpdates`;
     const params = new URLSearchParams({
@@ -121,33 +113,70 @@ serve(async (req) => {
     const response = await fetch(`${updatesUrl}?${params.toString()}`);
     const telegramData = await response.json();
 
+    console.log('Telegram API response:', telegramData.ok ? 'Success' : 'Failed', telegramData);
+
     let allPosts: TelegramMessage[] = [];
 
     if (telegramData.ok) {
       const updates = telegramData.result || [];
       console.log(`Received ${updates.length} recent updates from Telegram API`);
 
+      // Фильтруем обновления для нашего канала
       const channelUpdates = updates.filter((update: any) => {
-        if (!update.channel_post || !update.channel_post.chat) return false;
+        if (!update.channel_post || !update.channel_post.chat) {
+          console.log('Update without channel_post or chat:', update);
+          return false;
+        }
         
         const postChatId = update.channel_post.chat.id.toString();
-        return postChatId === targetChatId;
+        const matches = postChatId === targetChatId;
+        console.log(`Update chat ID: ${postChatId}, target: ${targetChatId}, matches: ${matches}`);
+        return matches;
       });
 
-      const filteredPosts = channelUpdates
-        .map((update: any) => update.channel_post)
-        .filter((post: any) => {
-          // Проверяем дату только если она указана
-          const isAfterDate = fromDate ? post.date >= fromTimestamp : true;
-          console.log(`Post ${post.message_id} date: ${new Date(post.date * 1000).toISOString()}, after filter date: ${isAfterDate}`);
-          return isAfterDate;
-        });
+      console.log(`Found ${channelUpdates.length} updates from target channel`);
+
+      // Применяем фильтр по дате и проверяем существование постов
+      const filteredPosts = [];
+      
+      for (const update of channelUpdates) {
+        const post = update.channel_post;
+        
+        // Проверяем дату
+        const isAfterDate = post.date >= fromTimestamp;
+        const postDate = new Date(post.date * 1000).toISOString();
+        console.log(`Post ${post.message_id} date: ${postDate}, timestamp: ${post.date}, filter timestamp: ${fromTimestamp}, passes date filter: ${isAfterDate}`);
+        
+        if (!isAfterDate) {
+          console.log(`Skipping post ${post.message_id}: too old`);
+          continue;
+        }
+
+        // Проверяем, не существует ли уже этот пост
+        const { data: existingPost } = await supabase
+          .from('posts')
+          .select('id')
+          .eq('telegram_message_id', post.message_id)
+          .single();
+
+        if (existingPost) {
+          console.log(`Skipping post ${post.message_id}: already exists in database`);
+          continue;
+        }
+
+        console.log(`Post ${post.message_id} is new and within date range, adding to processing queue`);
+        filteredPosts.push(post);
+      }
 
       allPosts = filteredPosts;
-      console.log(`Found ${filteredPosts.length} posts from recent updates`);
+      console.log(`Total posts to process: ${allPosts.length}`);
+    } else {
+      console.error('Failed to get updates from Telegram:', telegramData);
+      return new Response(
+        JSON.stringify({ error: `Failed to get updates from Telegram: ${telegramData.description}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
-
-    console.log(`Total posts found: ${allPosts.length}`);
 
     let processedCount = 0;
 
@@ -161,21 +190,9 @@ serve(async (req) => {
         continue;
       }
 
-      // Проверяем, не существует ли уже этот пост
-      const { data: existingPost } = await supabase
-        .from('posts')
-        .select('id')
-        .eq('telegram_message_id', message.message_id)
-        .single();
-
-      if (existingPost) {
-        console.log(`Post ${message.message_id} already exists, skipping`);
-        continue;
-      }
-
       // Извлекаем хештеги
       const hashtags = extractHashtags(messageText, message.entities || message.caption_entities || []);
-      console.log(`Found hashtags: ${hashtags.join(', ')}`);
+      console.log(`Found hashtags for message ${message.message_id}:`, hashtags);
       
       // Генерируем заголовок (первые 100 символов текста)
       const title = messageText.split('\n')[0].substring(0, 100).trim() || 'Без заголовка';
@@ -261,7 +278,7 @@ serve(async (req) => {
         fromDate: fromDate,
         fromTimestamp: fromTimestamp,
         targetChatId: targetChatId,
-        method: 'bot_recent_updates_only'
+        method: 'bot_recent_updates_improved'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
