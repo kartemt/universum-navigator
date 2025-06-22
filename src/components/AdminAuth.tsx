@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Lock, Loader2, Rocket, Shield, AlertTriangle } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { logger, GENERIC_ERRORS } from '@/utils/logger';
 
 interface AdminAuthProps {
   onAuthenticated: () => void;
@@ -25,7 +26,7 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
     if (!email.trim() || !password) {
       toast({
         title: 'Ошибка',
-        description: 'Введите email и пароль',
+        description: GENERIC_ERRORS.INVALID_INPUT,
         variant: 'destructive',
       });
       return;
@@ -36,14 +37,15 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
     try {
       await login(email.trim(), password);
       onAuthenticated();
+      logger.info('Admin authentication successful');
       toast({
         title: 'Доступ разрешен',
         description: 'Добро пожаловать в админ-панель УниверсУм',
       });
     } catch (error: any) {
-      console.error('Auth error:', error);
+      logger.error('Admin authentication failed', { email: email.trim() });
       
-      let errorMessage = 'Не удалось выполнить вход';
+      let errorMessage = GENERIC_ERRORS.AUTH_FAILED;
       
       if (error.message.includes('Too many login attempts')) {
         errorMessage = 'Слишком много попыток входа. Попробуйте позже.';
@@ -85,7 +87,6 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
             Панель управления базой знаний
           </CardDescription>
           
-          {/* Security indicators */}
           <div className="flex items-center justify-center gap-4 text-xs text-universum-gray mt-4">
             <div className="flex items-center gap-1">
               <Shield className="h-3 w-3 text-green-600" />

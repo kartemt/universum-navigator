@@ -17,6 +17,7 @@ import { PostManagement } from './PostManagement';
 import { SectionManagement } from './SectionManagement';
 import { MaterialTypeManagement } from './MaterialTypeManagement';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { logger, GENERIC_ERRORS } from '@/utils/logger';
 
 export const AdminPanel = () => {
   const [channelId, setChannelId] = useState('@UniversUm_R');
@@ -28,7 +29,7 @@ export const AdminPanel = () => {
     if (!channelId.trim()) {
       toast({
         title: "Ошибка",
-        description: "Введите ID или username канала",
+        description: GENERIC_ERRORS.INVALID_INPUT,
         variant: "destructive",
       });
       return;
@@ -37,7 +38,7 @@ export const AdminPanel = () => {
     setIsLoading(true);
 
     try {
-      console.log('Starting sync with channel:', channelId, 'from date:', startDate);
+      logger.debug('Starting Telegram sync', { channelId: channelId.trim() });
       
       const { data, error } = await supabase.functions.invoke('sync-telegram-posts', {
         body: { 
@@ -47,21 +48,25 @@ export const AdminPanel = () => {
       });
 
       if (error) {
-        throw error;
+        logger.error('Telegram sync function error');
+        throw new Error(GENERIC_ERRORS.OPERATION_FAILED);
       }
 
-      console.log('Sync result:', data);
+      logger.info('Telegram sync completed', { 
+        processedPosts: data?.processedPosts, 
+        totalFound: data?.totalFound 
+      });
 
       toast({
         title: "Синхронизация завершена",
         description: `Обработано ${data.processedPosts} постов из ${data.totalFound} найденных`,
       });
 
-    } catch (error) {
-      console.error('Sync error:', error);
+    } catch (error: any) {
+      logger.error('Telegram sync error');
       toast({
         title: "Ошибка синхронизации",
-        description: error.message || "Произошла ошибка при загрузке постов",
+        description: GENERIC_ERRORS.OPERATION_FAILED,
         variant: "destructive",
       });
     } finally {

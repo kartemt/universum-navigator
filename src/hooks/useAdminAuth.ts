@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { logger, GENERIC_ERRORS } from '@/utils/logger';
 
 interface AdminSession {
   sessionToken: string;
@@ -16,7 +17,6 @@ export const useAdminAuth = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session
     const checkSession = () => {
       const savedSession = localStorage.getItem('admin_session');
       if (savedSession) {
@@ -24,11 +24,13 @@ export const useAdminAuth = () => {
           const sessionData = JSON.parse(savedSession);
           if (new Date(sessionData.expiresAt) > new Date()) {
             setSession(sessionData);
+            logger.debug('Valid admin session restored');
           } else {
             localStorage.removeItem('admin_session');
+            logger.debug('Expired admin session removed');
           }
         } catch (error) {
-          console.error('Invalid session data:', error);
+          logger.error('Invalid session data found');
           localStorage.removeItem('admin_session');
         }
       }
@@ -39,26 +41,34 @@ export const useAdminAuth = () => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const { data, error } = await supabase.functions.invoke('admin-login', {
-      body: { email, password }
-    });
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-login', {
+        body: { email, password }
+      });
 
-    if (error) {
-      throw new Error(error.message || 'Login failed');
-    }
+      if (error) {
+        logger.error('Admin login function error');
+        throw new Error(GENERIC_ERRORS.AUTH_FAILED);
+      }
 
-    if (data?.success && data?.sessionToken) {
-      const sessionData = {
-        sessionToken: data.sessionToken,
-        expiresAt: data.expiresAt,
-        admin: data.admin
-      };
-      
-      localStorage.setItem('admin_session', JSON.stringify(sessionData));
-      setSession(sessionData);
-      return sessionData;
-    } else {
-      throw new Error(data?.error || 'Login failed');
+      if (data?.success && data?.sessionToken) {
+        const sessionData = {
+          sessionToken: data.sessionToken,
+          expiresAt: data.expiresAt,
+          admin: data.admin
+        };
+        
+        localStorage.setItem('admin_session', JSON.stringify(sessionData));
+        setSession(sessionData);
+        logger.info('Admin login successful', { email });
+        return sessionData;
+      } else {
+        logger.warn('Admin login failed', { email });
+        throw new Error(data?.error || GENERIC_ERRORS.AUTH_FAILED);
+      }
+    } catch (error: any) {
+      logger.error('Admin login error', { email });
+      throw error;
     }
   };
 
@@ -70,8 +80,9 @@ export const useAdminAuth = () => {
             'Authorization': `Bearer ${session.sessionToken}`
           }
         });
+        logger.info('Admin logout successful');
       } catch (error) {
-        console.error('Logout error:', error);
+        logger.error('Admin logout error');
       }
     }
     
@@ -81,25 +92,33 @@ export const useAdminAuth = () => {
 
   const changePassword = async (currentPassword: string, newPassword: string) => {
     if (!session) {
-      throw new Error('Not authenticated');
+      throw new Error(GENERIC_ERRORS.ACCESS_DENIED);
     }
 
-    const { data, error } = await supabase.functions.invoke('change-admin-password', {
-      headers: {
-        'Authorization': `Bearer ${session.sessionToken}`
-      },
-      body: { currentPassword, newPassword }
-    });
+    try {
+      const { data, error } = await supabase.functions.invoke('change-admin-password', {
+        headers: {
+          'Authorization': `Bearer ${session.sessionToken}`
+        },
+        body: { currentPassword, newPassword }
+      });
 
-    if (error) {
-      throw new Error(error.message || 'Password change failed');
+      if (error) {
+        logger.error('Password change function error');
+        throw new Error(GENERIC_ERRORS.OPERATION_FAILED);
+      }
+
+      if (!data?.success) {
+        logger.warn('Password change failed');
+        throw new Error(data?.error || GENERIC_ERRORS.OPERATION_FAILED);
+      }
+
+      logger.info('Admin password changed successfully');
+      return data;
+    } catch (error: any) {
+      logger.error('Password change error');
+      throw error;
     }
-
-    if (!data?.success) {
-      throw new Error(data?.error || 'Password change failed');
-    }
-
-    return data;
   };
 
   const getAuthHeaders = () => {
