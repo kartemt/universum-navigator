@@ -5,9 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Lock, Loader2, Rocket, Shield } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useSecurity } from '@/hooks/useSecurity';
+import { Lock, Loader2, Rocket, Shield, AlertTriangle } from 'lucide-react';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
 
 interface AdminAuthProps {
   onAuthenticated: () => void;
@@ -18,25 +17,15 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const { checkRateLimit, isBlocked, fingerprint } = useSecurity();
+  const { login } = useAdminAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Security check: rate limiting
-    if (!checkRateLimit(`admin_login_${fingerprint}`)) {
+    if (!email.trim() || !password) {
       toast({
-        title: 'Слишком много попыток',
-        description: 'Попробуйте войти позже',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (isBlocked) {
-      toast({
-        title: 'Доступ заблокирован',
-        description: 'Обратитесь к администратору',
+        title: 'Ошибка',
+        description: 'Введите email и пароль',
         variant: 'destructive',
       });
       return;
@@ -45,42 +34,30 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
     setIsLoading(true);
 
     try {
-      console.log('Attempting admin authentication with email:', email);
-      
-      const { data, error } = await supabase.functions.invoke('verify-admin', {
-        body: { 
-          email: email.trim(),
-          password: password,
-          fingerprint: fingerprint // Add fingerprint for additional security
-        }
+      await login(email.trim(), password);
+      onAuthenticated();
+      toast({
+        title: 'Доступ разрешен',
+        description: 'Добро пожаловать в админ-панель УниверсУм',
       });
-
-      if (error) {
-        console.error('Authentication error:', error);
-        throw new Error(error.message || 'Ошибка проверки пароля');
+    } catch (error: any) {
+      console.error('Auth error:', error);
+      
+      let errorMessage = 'Не удалось выполнить вход';
+      
+      if (error.message.includes('Too many login attempts')) {
+        errorMessage = 'Слишком много попыток входа. Попробуйте позже.';
+      } else if (error.message.includes('Account is temporarily locked')) {
+        errorMessage = 'Аккаунт временно заблокирован из-за многократных неудачных попыток входа.';
+      } else if (error.message.includes('Invalid credentials')) {
+        errorMessage = 'Неверный email или пароль';
+      } else if (error.message.includes('Access denied from this IP')) {
+        errorMessage = 'Доступ запрещен с данного IP-адреса';
       }
-
-      if (data?.success) {
-        sessionStorage.setItem('admin_authenticated', 'true');
-        sessionStorage.setItem('admin_email', email);
-        sessionStorage.setItem('admin_fingerprint', fingerprint);
-        onAuthenticated();
-        toast({
-          title: 'Доступ разрешен',
-          description: 'Добро пожаловать в админ-панель УниверсУм',
-        });
-      } else {
-        toast({
-          title: 'Неверные данные',
-          description: 'Проверьте email и пароль',
-          variant: 'destructive',
-        });
-      }
-    } catch (err: any) {
-      console.error('Auth error:', err);
+      
       toast({
         title: 'Ошибка аутентификации',
-        description: err.message || 'Не удалось выполнить вход',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -108,10 +85,16 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
             Панель управления базой знаний
           </CardDescription>
           
-          {/* Security indicator */}
-          <div className="flex items-center justify-center gap-2 text-xs text-universum-gray mt-2">
-            <Shield className="h-3 w-3" />
-            Защищённый вход
+          {/* Security indicators */}
+          <div className="flex items-center justify-center gap-4 text-xs text-universum-gray mt-4">
+            <div className="flex items-center gap-1">
+              <Shield className="h-3 w-3 text-green-600" />
+              <span>Защищённая аутентификация</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Lock className="h-3 w-3 text-blue-600" />
+              <span>bcrypt шифрование</span>
+            </div>
           </div>
         </CardHeader>
         
@@ -129,7 +112,7 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
-                disabled={isBlocked}
+                disabled={isLoading}
               />
             </div>
 
@@ -145,13 +128,16 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
-                disabled={isBlocked}
+                disabled={isLoading}
               />
+              <div className="text-xs text-gray-500 mt-1">
+                Минимум 12 символов, включая заглавные и строчные буквы, цифры и спецсимволы
+              </div>
             </div>
 
             <Button 
               type="submit" 
-              disabled={isLoading || !email.trim() || !password.trim() || isBlocked}
+              disabled={isLoading || !email.trim() || !password.trim()}
               className="w-full bg-universum-blue hover:bg-universum-dark-blue text-white font-semibold py-3 transition-all duration-200"
             >
               {isLoading ? (
@@ -167,6 +153,20 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
               )}
             </Button>
           </form>
+
+          <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="text-xs text-amber-800">
+                <div className="font-medium mb-1">Безопасность:</div>
+                <ul className="space-y-1 list-disc list-inside">
+                  <li>Аккаунт блокируется на 30 минут после 5 неудачных попыток</li>
+                  <li>Все действия администратора логируются</li>
+                  <li>Сессии автоматически истекают через 2 часа</li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

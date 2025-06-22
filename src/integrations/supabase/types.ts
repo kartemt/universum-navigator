@@ -9,27 +9,118 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      admin_activity_log: {
+        Row: {
+          action: string
+          admin_id: string | null
+          created_at: string
+          id: string
+          ip_address: unknown | null
+          record_id: string | null
+          table_name: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          admin_id?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: unknown | null
+          record_id?: string | null
+          table_name?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          admin_id?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: unknown | null
+          record_id?: string | null
+          table_name?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_activity_log_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "admins"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_sessions: {
+        Row: {
+          admin_id: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          ip_address: unknown | null
+          session_token: string
+          user_agent: string | null
+        }
+        Insert: {
+          admin_id?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          ip_address?: unknown | null
+          session_token: string
+          user_agent?: string | null
+        }
+        Update: {
+          admin_id?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          ip_address?: unknown | null
+          session_token?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_sessions_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "admins"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admins: {
         Row: {
           created_at: string
           email: string
+          failed_login_attempts: number | null
           id: string
           ip_whitelist: string[] | null
+          last_login_at: string | null
+          locked_until: string | null
           password_hash: string
+          password_hash_bcrypt: string | null
         }
         Insert: {
           created_at?: string
           email: string
+          failed_login_attempts?: number | null
           id?: string
           ip_whitelist?: string[] | null
+          last_login_at?: string | null
+          locked_until?: string | null
           password_hash: string
+          password_hash_bcrypt?: string | null
         }
         Update: {
           created_at?: string
           email?: string
+          failed_login_attempts?: number | null
           id?: string
           ip_whitelist?: string[] | null
+          last_login_at?: string | null
+          locked_until?: string | null
           password_hash?: string
+          password_hash_bcrypt?: string | null
         }
         Relationships: []
       }
@@ -182,7 +273,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_current_admin_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      is_admin_session: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

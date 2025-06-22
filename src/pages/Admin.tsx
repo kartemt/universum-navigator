@@ -4,44 +4,28 @@ import { AdminPanel } from '@/components/AdminPanel';
 import { AdminAuth } from '@/components/AdminAuth';
 import { ScrollToTop } from '@/components/ScrollToTop';
 import { SecurityWrapper } from '@/components/SecurityWrapper';
-import { useSecurity } from '@/hooks/useSecurity';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
 
 const Admin = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isChecking, setIsChecking] = useState(true);
-  const { fingerprint } = useSecurity();
-
-  useEffect(() => {
-    // Проверяем, авторизован ли пользователь с дополнительной проверкой fingerprint
-    const authStatus = sessionStorage.getItem('admin_authenticated');
-    const savedFingerprint = sessionStorage.getItem('admin_fingerprint');
-    
-    // Дополнительная проверка безопасности
-    const isValidSession = authStatus === 'true' && savedFingerprint === fingerprint;
-    
-    setIsAuthenticated(isValidSession);
-    setIsChecking(false);
-  }, [fingerprint]);
+  const { isAuthenticated, isLoading } = useAdminAuth();
 
   const handleAuthenticated = () => {
-    setIsAuthenticated(true);
+    // Authentication state is managed by the hook
   };
 
-  // Показываем загрузку во время проверки
-  if (isChecking) {
+  if (isLoading) {
     return (
       <SecurityWrapper>
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Проверка доступа...</p>
+            <p className="text-gray-600">Проверка сессии...</p>
           </div>
         </div>
       </SecurityWrapper>
     );
   }
 
-  // Если не авторизован, показываем форму входа
   if (!isAuthenticated) {
     return (
       <SecurityWrapper>
@@ -51,7 +35,6 @@ const Admin = () => {
     );
   }
 
-  // Если авторизован, показываем админ-панель
   return (
     <SecurityWrapper protectContent={true}>
       <AdminPanel />
