@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { PostCard } from '@/components/PostCard';
+import { SafePostCard } from '@/components/SafePostCard';
 import { FilterSidebar } from '@/components/FilterSidebar';
 import { Header } from '@/components/Header';
 import { SearchBar } from '@/components/SearchBar';
@@ -9,6 +9,7 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ScrollToTop } from '@/components/ScrollToTop';
 import { SecurityWrapper } from '@/components/SecurityWrapper';
 import { useSecurity } from '@/hooks/useSecurity';
+import { ContentSanitizer } from '@/utils/sanitization';
 
 interface Post {
   id: string;
@@ -40,7 +41,6 @@ const Index = () => {
   const { data: posts = [], isLoading } = useQuery({
     queryKey: ['posts', selectedSections, selectedMaterialTypes, searchQuery],
     queryFn: async () => {
-      // Rate limiting check (always returns true now)
       if (!checkRateLimit()) {
         throw new Error('Rate limit exceeded');
       }
@@ -54,16 +54,17 @@ const Index = () => {
         `)
         .order('published_at', { ascending: false });
 
-      // Фильтрация по поисковому запросу
+      // Sanitize search query before using it
       if (searchQuery) {
-        query = query.or(`title.ilike.%${searchQuery}%,content.ilike.%${searchQuery}%`);
+        const sanitizedQuery = ContentSanitizer.sanitizeText(searchQuery);
+        query = query.or(`title.ilike.%${sanitizedQuery}%,content.ilike.%${sanitizedQuery}%`);
       }
 
       const { data, error } = await query;
       
       if (error) throw error;
       
-      // Фильтрация по разделам и типам материалов на клиенте
+      // Client-side filtering by sections and material types
       let filteredData = data || [];
       
       if (selectedSections.length > 0) {
@@ -172,7 +173,6 @@ const Index = () => {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {/* Stats bar */}
                   <div className="bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-white/30 relative overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-r from-universum-teal/5 to-universum-orange/5"></div>
                     <p className="text-sm text-universum-gray relative z-10 font-pt-sans">
@@ -180,13 +180,12 @@ const Index = () => {
                     </p>
                   </div>
                   
-                  {/* Posts grid */}
                   <div className="grid gap-6">
                     {posts.map((post) => (
                       <div key={post.id} className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/30 overflow-hidden hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] relative group">
                         <div className="absolute inset-0 bg-gradient-to-r from-universum-teal/5 to-universum-orange/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                         <div className="relative z-10">
-                          <PostCard post={post} />
+                          <SafePostCard post={post} />
                         </div>
                       </div>
                     ))}

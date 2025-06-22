@@ -1,7 +1,7 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { logger, GENERIC_ERRORS } from '@/utils/logger';
+import { CSRFProtection } from '@/utils/csrfProtection';
 
 interface AdminSession {
   sessionToken: string;
@@ -43,7 +43,10 @@ export const useAdminAuth = () => {
   const login = async (email: string, password: string) => {
     try {
       const { data, error } = await supabase.functions.invoke('admin-login', {
-        body: { email, password }
+        body: { email, password },
+        headers: {
+          ...CSRFProtection.getHeaders(),
+        }
       });
 
       if (error) {
@@ -77,7 +80,8 @@ export const useAdminAuth = () => {
       try {
         await supabase.functions.invoke('admin-logout', {
           headers: {
-            'Authorization': `Bearer ${session.sessionToken}`
+            'Authorization': `Bearer ${session.sessionToken}`,
+            ...CSRFProtection.getHeaders(),
           }
         });
         logger.info('Admin logout successful');
@@ -87,6 +91,7 @@ export const useAdminAuth = () => {
     }
     
     localStorage.removeItem('admin_session');
+    CSRFProtection.clearToken();
     setSession(null);
   };
 
@@ -98,7 +103,8 @@ export const useAdminAuth = () => {
     try {
       const { data, error } = await supabase.functions.invoke('change-admin-password', {
         headers: {
-          'Authorization': `Bearer ${session.sessionToken}`
+          'Authorization': `Bearer ${session.sessionToken}`,
+          ...CSRFProtection.getHeaders(),
         },
         body: { currentPassword, newPassword }
       });
@@ -124,7 +130,8 @@ export const useAdminAuth = () => {
   const getAuthHeaders = () => {
     if (!session) return {};
     return {
-      'Authorization': `Bearer ${session.sessionToken}`
+      'Authorization': `Bearer ${session.sessionToken}`,
+      ...CSRFProtection.getHeaders(),
     };
   };
 
