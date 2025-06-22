@@ -3,6 +3,7 @@ import React from 'react';
 import { useSecurity } from '@/hooks/useSecurity';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield } from 'lucide-react';
+import { SecurityHeadersManager } from '@/utils/security';
 
 interface SecurityWrapperProps {
   children: React.ReactNode;
@@ -11,6 +12,21 @@ interface SecurityWrapperProps {
 
 export const SecurityWrapper = ({ children, protectContent = false }: SecurityWrapperProps) => {
   const { isBot } = useSecurity();
+
+  React.useEffect(() => {
+    const securityManager = SecurityHeadersManager.getInstance();
+    
+    // Apply runtime security measures
+    securityManager.applyRuntimeSecurity();
+    
+    // Setup security monitoring
+    securityManager.setupSecurityMonitoring();
+    
+    // Validate secure context
+    if (!securityManager.isSecureContext() && import.meta.env.PROD) {
+      console.warn('Application is not running in a secure context (HTTPS)');
+    }
+  }, []);
 
   const content = (
     <div className={protectContent ? 'protected-content' : ''}>

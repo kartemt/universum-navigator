@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -8,6 +7,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-csrf-token',
   'Access-Control-Allow-Credentials': 'true',
 };
+
+const securityHeaders = {
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'X-XSS-Protection': '1; mode=block',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload'
+};
+
+const allHeaders = { ...corsHeaders, ...securityHeaders };
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -35,7 +44,7 @@ function createSecureCookie(sessionToken: string, expiresAt: Date): string {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: allHeaders });
   }
 
   try {
@@ -45,7 +54,7 @@ serve(async (req) => {
     if (!currentSessionToken) {
       return new Response(JSON.stringify({ error: 'No session to refresh' }), {
         status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...allHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -60,7 +69,7 @@ serve(async (req) => {
     if (!currentSession) {
       return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
         status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...allHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -88,7 +97,7 @@ serve(async (req) => {
       console.error('Session refresh error:', sessionError);
       return new Response(JSON.stringify({ error: 'Failed to refresh session' }), {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...allHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -106,7 +115,7 @@ serve(async (req) => {
       }
     }), {
       headers: { 
-        ...corsHeaders, 
+        ...allHeaders, 
         'Content-Type': 'application/json',
         'Set-Cookie': cookie
       },
@@ -116,7 +125,7 @@ serve(async (req) => {
     console.error('Session refresh error:', error);
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...allHeaders, 'Content-Type': 'application/json' },
     });
   }
 });

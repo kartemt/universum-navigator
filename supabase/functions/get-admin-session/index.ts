@@ -9,6 +9,16 @@ const corsHeaders = {
   'Access-Control-Allow-Credentials': 'true',
 };
 
+const securityHeaders = {
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'X-XSS-Protection': '1; mode=block',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload'
+};
+
+const allHeaders = { ...corsHeaders, ...securityHeaders };
+
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, serviceKey);
@@ -24,7 +34,7 @@ function parseSessionCookie(cookieHeader: string | null): string | null {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: allHeaders });
   }
 
   try {
@@ -34,7 +44,7 @@ serve(async (req) => {
     if (!sessionToken) {
       return new Response(JSON.stringify({ error: 'No session found' }), {
         status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...allHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -49,7 +59,7 @@ serve(async (req) => {
     if (!session) {
       return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
         status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...allHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -63,14 +73,14 @@ serve(async (req) => {
         }
       }
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...allHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
     console.error('Get session error:', error);
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...allHeaders, 'Content-Type': 'application/json' },
     });
   }
 });

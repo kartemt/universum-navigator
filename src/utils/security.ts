@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 // Simplified security utilities focused on essential user experience features
@@ -67,4 +66,94 @@ export function withContentProtection<T extends React.ComponentType<any>>(
   };
 
   return ProtectedComponent as T;
+}
+
+// Enhanced security utilities for comprehensive protection
+export class SecurityHeadersManager {
+  private static instance: SecurityHeadersManager;
+
+  static getInstance(): SecurityHeadersManager {
+    if (!SecurityHeadersManager.instance) {
+      SecurityHeadersManager.instance = new SecurityHeadersManager();
+    }
+    return SecurityHeadersManager.instance;
+  }
+
+  // Check if the current environment supports secure features
+  isSecureContext(): boolean {
+    return window.isSecureContext || location.protocol === 'https:';
+  }
+
+  // Validate CSP compliance for dynamic content
+  validateCSPCompliance(content: string): boolean {
+    // Check for potentially dangerous patterns
+    const dangerousPatterns = [
+      /<script[^>]*src=["'](?!https?:\/\/)/i, // External scripts without protocol
+      /javascript:/i, // JavaScript protocol
+      /data:text\/html/i, // Data URLs with HTML
+      /vbscript:/i, // VBScript protocol
+      /<object/i, // Object tags
+      /<embed/i, // Embed tags
+      /<applet/i // Applet tags
+    ];
+
+    return !dangerousPatterns.some(pattern => pattern.test(content));
+  }
+
+  // Apply runtime security configurations
+  applyRuntimeSecurity(): void {
+    // Disable right-click context menu in production (optional)
+    if (import.meta.env.PROD) {
+      document.addEventListener('contextmenu', (e) => {
+        if (!(e.target as HTMLElement).closest('.debug-allowed')) {
+          e.preventDefault();
+        }
+      });
+    }
+
+    // Disable F12 developer tools in production (optional)
+    if (import.meta.env.PROD) {
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key === 'I')) {
+          e.preventDefault();
+        }
+      });
+    }
+
+    // Clear sensitive data on page unload
+    window.addEventListener('beforeunload', () => {
+      // Clear any sensitive data from memory
+      if ((window as any).sensitiveData) {
+        delete (window as any).sensitiveData;
+      }
+    });
+  }
+
+  // Monitor for security violations
+  setupSecurityMonitoring(): void {
+    // CSP violation reporting
+    document.addEventListener('securitypolicyviolation', (e) => {
+      console.warn('CSP Violation:', {
+        directive: e.violatedDirective,
+        blockedURI: e.blockedURI,
+        lineNumber: e.lineNumber,
+        sourceFile: e.sourceFile
+      });
+      
+      // Log security violations (in production, send to monitoring service)
+      if (import.meta.env.PROD) {
+        // Send to security monitoring service
+        fetch('/api/security/violations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'csp_violation',
+            directive: e.violatedDirective,
+            blockedURI: e.blockedURI,
+            timestamp: new Date().toISOString()
+          })
+        }).catch(console.error);
+      }
+    });
+  }
 }

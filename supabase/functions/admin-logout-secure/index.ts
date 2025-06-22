@@ -9,6 +9,16 @@ const corsHeaders = {
   'Access-Control-Allow-Credentials': 'true',
 };
 
+const securityHeaders = {
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'X-XSS-Protection': '1; mode=block',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload'
+};
+
+const allHeaders = { ...corsHeaders, ...securityHeaders };
+
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, serviceKey);
@@ -28,7 +38,7 @@ function createExpiredCookie(): string {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: allHeaders });
   }
 
   try {
@@ -52,7 +62,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { 
-        ...corsHeaders, 
+        ...allHeaders, 
         'Content-Type': 'application/json',
         'Set-Cookie': expiredCookie
       },
@@ -62,7 +72,7 @@ serve(async (req) => {
     console.error('Secure logout error:', error);
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...allHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
