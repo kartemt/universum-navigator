@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,13 +35,13 @@ const Index = () => {
   const [selectedSections, setSelectedSections] = useState<string[]>([]);
   const [selectedMaterialTypes, setSelectedMaterialTypes] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const { checkRateLimit, fingerprint } = useSecurity();
+  const { checkRateLimit } = useSecurity();
 
   const { data: posts = [], isLoading } = useQuery({
     queryKey: ['posts', selectedSections, selectedMaterialTypes, searchQuery],
     queryFn: async () => {
-      // Rate limiting for data requests
-      if (!checkRateLimit(`posts_${fingerprint}`)) {
+      // Rate limiting check (always returns true now)
+      if (!checkRateLimit()) {
         throw new Error('Rate limit exceeded');
       }
 
@@ -86,7 +85,7 @@ const Index = () => {
   const { data: sections = [] } = useQuery({
     queryKey: ['sections'],
     queryFn: async () => {
-      if (!checkRateLimit(`sections_${fingerprint}`)) {
+      if (!checkRateLimit()) {
         throw new Error('Rate limit exceeded');
       }
 
@@ -103,7 +102,7 @@ const Index = () => {
   const { data: materialTypes = [] } = useQuery({
     queryKey: ['material_types'],
     queryFn: async () => {
-      if (!checkRateLimit(`material_types_${fingerprint}`)) {
+      if (!checkRateLimit()) {
         throw new Error('Rate limit exceeded');
       }
 

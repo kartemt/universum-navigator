@@ -16,12 +16,12 @@ interface Post {
 }
 
 const HashtagGroups = () => {
-  const { checkRateLimit, fingerprint } = useSecurity();
+  const { checkRateLimit } = useSecurity();
 
   const { data: posts = [], isLoading } = useQuery({
     queryKey: ['hashtag-groups'],
     queryFn: async () => {
-      if (!checkRateLimit(`hashtags_${fingerprint}`)) {
+      if (!checkRateLimit()) {
         throw new Error('Rate limit exceeded');
       }
 

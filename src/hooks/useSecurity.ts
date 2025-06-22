@@ -14,9 +14,8 @@ export const useSecurity = () => {
   }, []);
 
   return {
-    isBlocked: false, // Removed client-side blocking
-    fingerprint: '', // Removed fingerprinting
-    checkRateLimit: () => true, // Removed client-side rate limiting
-    isBot
+    isBot,
+    // Simplified API - no more client-side rate limiting
+    checkRateLimit: () => true
   };
 };

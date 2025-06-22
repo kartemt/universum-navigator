@@ -1,3 +1,4 @@
+import React from 'react';
 
 // Simplified security utilities focused on essential user experience features
 export class SecurityManager {
