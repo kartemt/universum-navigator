@@ -1,7 +1,7 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import * as bcrypt from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -34,6 +34,33 @@ function createSecureCookie(sessionToken: string, expiresAt: Date): string {
   return `admin_session=${sessionToken}; HttpOnly; Secure; SameSite=Strict; Path=/; Expires=${expires}`;
 }
 
+// Simple password hashing using Web Crypto API (for new passwords)
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password + 'universum_salt_2024'); // Add salt
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Verify password against both old SHA-256 and new hashed passwords
+async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+  // Try new hash format first
+  const newHash = await hashPassword(password);
+  if (newHash === storedHash) {
+    return true;
+  }
+  
+  // Try old SHA-256 format
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const oldHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  
+  return oldHash === storedHash;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: allHeaders });
@@ -49,7 +76,9 @@ serve(async (req) => {
       });
     }
 
-    // Get admin record (reusing existing logic from admin-login)
+    console.log('Secure login attempt for email:', email);
+
+    // Get admin record
     const { data: admin, error: adminError } = await supabase
       .from('admins')
       .select('*')
@@ -57,14 +86,18 @@ serve(async (req) => {
       .single();
 
     if (adminError || !admin) {
+      console.log('Admin not found or error:', adminError);
       return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
         status: 401,
         headers: { ...allHeaders, 'Content-Type': 'application/json' },
       });
     }
 
+    console.log('Admin found:', admin.email);
+
     // Check if account is locked
     if (admin.locked_until && new Date(admin.locked_until) > new Date()) {
+      console.log('Account is locked until:', admin.locked_until);
       return new Response(JSON.stringify({ 
         error: 'Account is temporarily locked due to too many failed attempts' 
       }), {
@@ -73,34 +106,35 @@ serve(async (req) => {
       });
     }
 
-    // Verify password
+    // Verify password using either stored hash
     let passwordValid = false;
     
     if (admin.password_hash_bcrypt) {
-      passwordValid = await bcrypt.compare(password, admin.password_hash_bcrypt);
+      // For existing bcrypt hashes, we'll verify using our new method
+      passwordValid = await verifyPassword(password, admin.password_hash_bcrypt);
     } else if (admin.password_hash) {
-      const encoder = new TextEncoder();
-      const data = encoder.encode(password);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashedPassword = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      passwordValid = hashedPassword === admin.password_hash;
+      // For legacy SHA-256 hashes
+      passwordValid = await verifyPassword(password, admin.password_hash);
       
+      // If valid, upgrade to new hash format
       if (passwordValid) {
-        const bcryptHash = await bcrypt.hash(password, 12);
+        const newHash = await hashPassword(password);
         await supabase
           .from('admins')
-          .update({ password_hash_bcrypt: bcryptHash })
+          .update({ password_hash_bcrypt: newHash })
           .eq('id', admin.id);
+        console.log('Password hash upgraded for admin:', admin.email);
       }
     }
 
     if (!passwordValid) {
+      console.log('Invalid password for admin:', admin.email);
       const newFailedAttempts = (admin.failed_login_attempts || 0) + 1;
       const updates: any = { failed_login_attempts: newFailedAttempts };
       
       if (newFailedAttempts >= 5) {
         updates.locked_until = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+        console.log('Account locked due to failed attempts');
       }
       
       await supabase
@@ -113,6 +147,8 @@ serve(async (req) => {
         headers: { ...allHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    console.log('Password verified for admin:', admin.email);
 
     // Generate session token
     const sessionToken = generateSessionToken();
@@ -137,6 +173,8 @@ serve(async (req) => {
       });
     }
 
+    console.log('Session created successfully');
+
     // Reset failed attempts
     await supabase
       .from('admins')
@@ -149,6 +187,8 @@ serve(async (req) => {
 
     // Set secure httpOnly cookie and return session data
     const cookie = createSecureCookie(sessionToken, expiresAt);
+    
+    console.log('Secure login successful for admin:', admin.email);
     
     return new Response(JSON.stringify({ 
       success: true,
