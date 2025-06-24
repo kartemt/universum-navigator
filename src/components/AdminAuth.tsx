@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,7 +18,16 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const { login } = useAdminAuth();
+  const { login, isAuthenticated } = useAdminAuth();
+
+  // Автоматический переход, если пользователь уже авторизован
+  useEffect(() => {
+    console.log('AdminAuth: isAuthenticated changed to:', isAuthenticated);
+    if (isAuthenticated) {
+      console.log('User is authenticated, calling onAuthenticated');
+      onAuthenticated();
+    }
+  }, [isAuthenticated, onAuthenticated]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,13 +44,21 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
     setIsLoading(true);
 
     try {
-      await login(email.trim(), password);
-      onAuthenticated();
-      logger.info('Admin authentication successful');
+      console.log('Attempting login...');
+      const sessionData = await login(email.trim(), password);
+      console.log('Login successful, session data:', sessionData);
+      
       toast({
         title: 'Доступ разрешен',
         description: 'Добро пожаловать в админ-панель УниверсУм',
       });
+
+      // Принудительный вызов onAuthenticated с задержкой
+      setTimeout(() => {
+        console.log('Calling onAuthenticated after delay');
+        onAuthenticated();
+      }, 500);
+
     } catch (error: any) {
       logger.error('Admin authentication failed', { email: email.trim() });
       
@@ -66,6 +83,18 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
       setIsLoading(false);
     }
   };
+
+  // Если уже авторизован, показываем загрузку
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-universum-gradient flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-white">Переход в админ-панель...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-universum-gradient flex items-center justify-center p-4">

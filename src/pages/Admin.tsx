@@ -8,9 +8,21 @@ import { useAdminAuth } from '@/hooks/useAdminAuth';
 
 const Admin = () => {
   const { isAuthenticated, isLoading } = useAdminAuth();
+  const [showPanel, setShowPanel] = useState(false);
+
+  // Отслеживаем изменения аутентификации
+  useEffect(() => {
+    console.log('Admin: isAuthenticated changed to:', isAuthenticated);
+    if (isAuthenticated) {
+      setShowPanel(true);
+    } else {
+      setShowPanel(false);
+    }
+  }, [isAuthenticated]);
 
   const handleAuthenticated = () => {
-    // Authentication state is managed by the hook
+    console.log('handleAuthenticated called');
+    setShowPanel(true);
   };
 
   if (isLoading) {
@@ -26,18 +38,19 @@ const Admin = () => {
     );
   }
 
-  if (!isAuthenticated) {
+  // Принудительно показываем панель если авторизован или showPanel установлен
+  if (isAuthenticated || showPanel) {
     return (
-      <SecurityWrapper>
-        <AdminAuth onAuthenticated={handleAuthenticated} />
+      <SecurityWrapper protectContent={true}>
+        <AdminPanel />
         <ScrollToTop />
       </SecurityWrapper>
     );
   }
 
   return (
-    <SecurityWrapper protectContent={true}>
-      <AdminPanel />
+    <SecurityWrapper>
+      <AdminAuth onAuthenticated={handleAuthenticated} />
       <ScrollToTop />
     </SecurityWrapper>
   );

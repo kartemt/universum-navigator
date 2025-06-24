@@ -16,6 +16,7 @@ interface AdminSession {
 export const useAdminAuth = () => {
   const [session, setSession] = useState<AdminSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [forceUpdate, setForceUpdate] = useState(0);
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -42,18 +43,31 @@ export const useAdminAuth = () => {
       if (currentSession && !SessionManager.isSessionValid()) {
         logger.debug('Session expired, clearing state');
         setSession(null);
+        setForceUpdate(prev => prev + 1);
       }
     }, 60000); // Check every minute
 
     return () => {
       clearInterval(refreshInterval);
     };
-  }, []);
+  }, [forceUpdate]);
 
   const login = async (email: string, password: string) => {
     try {
+      console.log('Starting login process...');
       const sessionData = await SessionManager.createSession(email, password);
+      console.log('Session created:', sessionData);
+      
+      // Принудительно обновляем состояние
       setSession(sessionData);
+      setIsLoading(false);
+      
+      // Принудительная перерисовка через небольшую задержку
+      setTimeout(() => {
+        setForceUpdate(prev => prev + 1);
+        console.log('Force update triggered, isAuthenticated should be:', !!sessionData);
+      }, 100);
+      
       logger.info('Secure admin login successful', { email });
       return sessionData;
     } catch (error: any) {
@@ -65,6 +79,7 @@ export const useAdminAuth = () => {
   const logout = async () => {
     await SessionManager.destroySession();
     setSession(null);
+    setForceUpdate(prev => prev + 1);
     logger.info('Secure admin logout completed');
   };
 
@@ -102,16 +117,19 @@ export const useAdminAuth = () => {
       const refreshedSession = await SessionManager.refreshSession();
       if (refreshedSession) {
         setSession(refreshedSession);
+        setForceUpdate(prev => prev + 1);
         logger.debug('Session refreshed successfully');
         return refreshedSession;
       } else {
         setSession(null);
+        setForceUpdate(prev => prev + 1);
         logger.debug('Session refresh failed, user logged out');
         return null;
       }
     } catch (error) {
       logger.error('Session refresh error');
       setSession(null);
+      setForceUpdate(prev => prev + 1);
       return null;
     }
   };
@@ -120,9 +138,19 @@ export const useAdminAuth = () => {
     return SessionManager.getAuthHeaders();
   };
 
+  const isAuthenticated = !!session && SessionManager.isSessionValid();
+  
+  console.log('useAdminAuth state:', { 
+    session: !!session, 
+    isAuthenticated, 
+    isLoading,
+    sessionValid: SessionManager.isSessionValid(),
+    forceUpdate 
+  });
+
   return {
     session,
-    isAuthenticated: !!session && SessionManager.isSessionValid(),
+    isAuthenticated,
     isLoading,
     login,
     logout,
