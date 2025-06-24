@@ -34,6 +34,26 @@ function createSecureCookie(sessionToken: string, expiresAt: Date): string {
   return `admin_session=${sessionToken}; HttpOnly; Secure; SameSite=Strict; Path=/; Expires=${expires}`;
 }
 
+// Function to extract client IP address properly
+function extractClientIP(req: Request): string | null {
+  // Get forwarded IPs and extract the first (client) IP
+  const forwardedFor = req.headers.get('x-forwarded-for');
+  const realIP = req.headers.get('x-real-ip');
+  
+  if (forwardedFor) {
+    // x-forwarded-for can contain multiple IPs separated by commas
+    // The first IP is the original client IP
+    const firstIP = forwardedFor.split(',')[0].trim();
+    return firstIP;
+  }
+  
+  if (realIP) {
+    return realIP.trim();
+  }
+  
+  return null;
+}
+
 // Simple password hashing using Web Crypto API (for new passwords)
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -154,6 +174,10 @@ serve(async (req) => {
     const sessionToken = generateSessionToken();
     const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
 
+    // Extract client IP properly
+    const clientIP = extractClientIP(req);
+    console.log('Client IP extracted:', clientIP);
+
     // Create session in database
     const { error: sessionError } = await supabase
       .from('admin_sessions')
@@ -161,7 +185,7 @@ serve(async (req) => {
         admin_id: admin.id,
         session_token: sessionToken,
         expires_at: expiresAt.toISOString(),
-        ip_address: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
+        ip_address: clientIP,
         user_agent: req.headers.get('user-agent')
       });
 

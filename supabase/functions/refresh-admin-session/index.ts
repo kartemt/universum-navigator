@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -42,6 +43,26 @@ function createSecureCookie(sessionToken: string, expiresAt: Date): string {
   return `admin_session=${sessionToken}; HttpOnly; Secure; SameSite=Strict; Path=/; Expires=${expires}`;
 }
 
+// Function to extract client IP address properly
+function extractClientIP(req: Request): string | null {
+  // Get forwarded IPs and extract the first (client) IP
+  const forwardedFor = req.headers.get('x-forwarded-for');
+  const realIP = req.headers.get('x-real-ip');
+  
+  if (forwardedFor) {
+    // x-forwarded-for can contain multiple IPs separated by commas
+    // The first IP is the original client IP
+    const firstIP = forwardedFor.split(',')[0].trim();
+    return firstIP;
+  }
+  
+  if (realIP) {
+    return realIP.trim();
+  }
+  
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: allHeaders });
@@ -77,6 +98,9 @@ serve(async (req) => {
     const newSessionToken = generateSessionToken();
     const newExpiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
 
+    // Extract client IP properly
+    const clientIP = extractClientIP(req);
+
     // Delete old session and create new one
     await supabase
       .from('admin_sessions')
@@ -89,7 +113,7 @@ serve(async (req) => {
         admin_id: currentSession.admin_id,
         session_token: newSessionToken,
         expires_at: newExpiresAt.toISOString(),
-        ip_address: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
+        ip_address: clientIP,
         user_agent: req.headers.get('user-agent')
       });
 
