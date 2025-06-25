@@ -7,18 +7,20 @@ import { SecurityWrapper } from '@/components/SecurityWrapper';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 
 const Admin = () => {
-  const { isAuthenticated, isLoading } = useAdminAuth();
+  const { isAuthenticated, isLoading, authState } = useAdminAuth();
   const [showPanel, setShowPanel] = useState(false);
 
   // Отслеживаем изменения аутентификации
   useEffect(() => {
-    console.log('Admin: isAuthenticated changed to:', isAuthenticated);
-    if (isAuthenticated) {
+    console.log('Admin: Auth state changed:', { isAuthenticated, authState, showPanel });
+    if (isAuthenticated && authState === 'authenticated') {
+      console.log('Setting showPanel to true');
       setShowPanel(true);
-    } else {
+    } else if (authState === 'unauthenticated') {
+      console.log('Setting showPanel to false');
       setShowPanel(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, authState]);
 
   const handleAuthenticated = () => {
     console.log('handleAuthenticated called');
@@ -38,8 +40,8 @@ const Admin = () => {
     );
   }
 
-  // Принудительно показываем панель если авторизован или showPanel установлен
-  if (isAuthenticated || showPanel) {
+  // Показываем панель если авторизован или showPanel установлен
+  if ((isAuthenticated && authState === 'authenticated') || showPanel) {
     return (
       <SecurityWrapper protectContent={true}>
         <AdminPanel />

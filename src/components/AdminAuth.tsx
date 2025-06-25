@@ -16,18 +16,18 @@ interface AdminAuthProps {
 export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
-  const { login, isAuthenticated } = useAdminAuth();
+  const { login, isAuthenticated, isLoading, authState } = useAdminAuth();
 
   // Автоматический переход, если пользователь уже авторизован
   useEffect(() => {
-    console.log('AdminAuth: isAuthenticated changed to:', isAuthenticated);
-    if (isAuthenticated) {
+    console.log('AdminAuth: Auth state changed:', { isAuthenticated, authState });
+    if (isAuthenticated && authState === 'authenticated') {
       console.log('User is authenticated, calling onAuthenticated');
-      onAuthenticated();
+      setTimeout(() => onAuthenticated(), 100);
     }
-  }, [isAuthenticated, onAuthenticated]);
+  }, [isAuthenticated, authState, onAuthenticated]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +41,7 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
       return;
     }
 
-    setIsLoading(true);
+    setIsSubmitting(true);
     console.log('Starting login process with email:', email.trim());
 
     try {
@@ -82,17 +82,19 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
         variant: 'destructive',
       });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  // Если уже авторизован, показываем загрузку
-  if (isAuthenticated) {
+  // Если загружается или уже авторизован, показываем загрузку
+  if (isLoading || isAuthenticated) {
     return (
       <div className="min-h-screen bg-universum-gradient flex items-center justify-center p-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-white">Переход в админ-панель...</p>
+          <p className="text-white">
+            {isLoading ? 'Проверка сессии...' : 'Переход в админ-панель...'}
+          </p>
         </div>
       </div>
     );
@@ -144,7 +146,7 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
-                disabled={isLoading}
+                disabled={isSubmitting}
               />
             </div>
 
@@ -160,7 +162,7 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
-                disabled={isLoading}
+                disabled={isSubmitting}
               />
               <div className="text-xs text-gray-500 mt-1">
                 Минимум 12 символов, включая заглавные и строчные буквы, цифры и спецсимволы
@@ -169,10 +171,10 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
 
             <Button 
               type="submit" 
-              disabled={isLoading || !email.trim() || !password.trim()}
+              disabled={isSubmitting || !email.trim() || !password.trim()}
               className="w-full bg-universum-blue hover:bg-universum-dark-blue text-white font-semibold py-3 transition-all duration-200"
             >
-              {isLoading ? (
+              {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   Проверяем доступ...

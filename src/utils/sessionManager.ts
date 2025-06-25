@@ -26,7 +26,7 @@ export class SessionManager {
       
       const { data, error } = await supabase.functions.invoke('get-admin-session', {
         headers: {
-          ...CSRFProtection.getHeaders(),
+          'Content-Type': 'application/json',
         }
       });
 
@@ -63,7 +63,7 @@ export class SessionManager {
       const { data, error } = await supabase.functions.invoke('admin-login-secure', {
         body: { email, password },
         headers: {
-          ...CSRFProtection.getHeaders(),
+          'Content-Type': 'application/json',
         }
       });
 
@@ -105,7 +105,7 @@ export class SessionManager {
       
       const { data, error } = await supabase.functions.invoke('refresh-admin-session', {
         headers: {
-          ...CSRFProtection.getHeaders(),
+          'Content-Type': 'application/json',
         }
       });
 
@@ -138,7 +138,7 @@ export class SessionManager {
     try {
       await supabase.functions.invoke('admin-logout-secure', {
         headers: {
-          ...CSRFProtection.getHeaders(),
+          'Content-Type': 'application/json',
         }
       });
       console.log('SessionManager: Logout successful');
@@ -163,7 +163,7 @@ export class SessionManager {
    */
   static getAuthHeaders(): Record<string, string> {
     return {
-      ...CSRFProtection.getHeaders(),
+      'Content-Type': 'application/json',
     };
   }
 
