@@ -57,8 +57,17 @@ function extractClientIP(req: Request): string | null {
   return null;
 }
 
-// Улучшенное хеширование паролей с уникальной солью
-async function hashPassword(password: string, userId?: string): Promise<string> {
+// Простое хеширование SHA-256 для обратной совместимости
+async function hashPasswordSimple(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Улучшенное хеширование с солью
+async function hashPasswordEnhanced(password: string, userId?: string): Promise<string> {
   const encoder = new TextEncoder();
   const salt = userId ? `universum_${userId}_salt_2024` : 'universum_salt_2024';
   const data = encoder.encode(password + salt);
@@ -67,31 +76,39 @@ async function hashPassword(password: string, userId?: string): Promise<string> 
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Проверка пароля с поддержкой всех форматов
+// Функция верификации пароля с детальным логированием
 async function verifyPassword(password: string, storedHash: string, userId?: string): Promise<boolean> {
   try {
-    // Пробуем новый формат с уникальной солью пользователя
+    console.log('Starting password verification...');
+    
+    // Пробуем простой SHA-256 хеш (для существующих паролей)
+    const simpleHash = await hashPasswordSimple(password);
+    console.log('Generated simple hash, checking match...');
+    if (simpleHash === storedHash) {
+      console.log('Simple hash matched!');
+      return true;
+    }
+    
+    // Пробуем улучшенный хеш с общей солью
+    const enhancedHash = await hashPasswordEnhanced(password);
+    console.log('Generated enhanced hash, checking match...');
+    if (enhancedHash === storedHash) {
+      console.log('Enhanced hash matched!');
+      return true;
+    }
+    
+    // Пробуем хеш с уникальной солью пользователя
     if (userId) {
-      const newHash = await hashPassword(password, userId);
-      if (newHash === storedHash) {
+      const userSpecificHash = await hashPasswordEnhanced(password, userId);
+      console.log('Generated user-specific hash, checking match...');
+      if (userSpecificHash === storedHash) {
+        console.log('User-specific hash matched!');
         return true;
       }
     }
     
-    // Пробуем улучшенный формат с общей солью
-    const enhancedHash = await hashPassword(password);
-    if (enhancedHash === storedHash) {
-      return true;
-    }
-    
-    // Пробуем старый SHA-256 формат для обратной совместимости
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const oldHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    
-    return oldHash === storedHash;
+    console.log('No hash variants matched');
+    return false;
   } catch (error) {
     console.error('Password verification error:', error);
     return false;
@@ -106,7 +123,17 @@ serve(async (req) => {
   try {
     console.log('Secure login request received');
     
-    const body = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch (error) {
+      console.error('Failed to parse request body:', error);
+      return new Response(JSON.stringify({ error: 'Invalid request body' }), {
+        status: 400,
+        headers: { ...allHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
     const { email, password } = body;
     
     if (!email || !password) {
@@ -120,21 +147,31 @@ serve(async (req) => {
     console.log('Login attempt for email:', email);
 
     // Получаем запись админа
-    const { data: admin, error: adminError } = await supabase
-      .from('admins')
-      .select('*')
-      .eq('email', email.toLowerCase().trim())
-      .single();
+    let admin;
+    try {
+      const { data, error: adminError } = await supabase
+        .from('admins')
+        .select('*')
+        .eq('email', email.toLowerCase().trim())
+        .single();
 
-    if (adminError || !admin) {
-      console.log('Admin not found or error:', adminError?.message);
-      return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
-        status: 401,
+      if (adminError || !data) {
+        console.log('Admin not found or error:', adminError?.message);
+        return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
+          status: 401,
+          headers: { ...allHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      admin = data;
+      console.log('Admin found:', admin.email);
+    } catch (error) {
+      console.error('Database query error:', error);
+      return new Response(JSON.stringify({ error: 'Database error' }), {
+        status: 500,
         headers: { ...allHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    console.log('Admin found:', admin.email);
 
     // Проверяем блокировку аккаунта
     if (admin.locked_until && new Date(admin.locked_until) > new Date()) {
@@ -152,18 +189,23 @@ serve(async (req) => {
 
     if (!passwordValid) {
       console.log('Invalid password for admin:', admin.email);
-      const newFailedAttempts = (admin.failed_login_attempts || 0) + 1;
-      const updates: any = { failed_login_attempts: newFailedAttempts };
       
-      if (newFailedAttempts >= 5) {
-        updates.locked_until = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-        console.log('Account locked due to failed attempts');
+      try {
+        const newFailedAttempts = (admin.failed_login_attempts || 0) + 1;
+        const updates: any = { failed_login_attempts: newFailedAttempts };
+        
+        if (newFailedAttempts >= 5) {
+          updates.locked_until = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+          console.log('Account locked due to failed attempts');
+        }
+        
+        await supabase
+          .from('admins')
+          .update(updates)
+          .eq('id', admin.id);
+      } catch (error) {
+        console.error('Failed to update failed login attempts:', error);
       }
-      
-      await supabase
-        .from('admins')
-        .update(updates)
-        .eq('id', admin.id);
       
       return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
         status: 401,
@@ -182,18 +224,26 @@ serve(async (req) => {
     console.log('Client IP extracted:', clientIP);
 
     // Создаем сессию в базе данных
-    const { error: sessionError } = await supabase
-      .from('admin_sessions')
-      .insert({
-        admin_id: admin.id,
-        session_token: sessionToken,
-        expires_at: expiresAt.toISOString(),
-        ip_address: clientIP,
-        user_agent: req.headers.get('user-agent')
-      });
+    try {
+      const { error: sessionError } = await supabase
+        .from('admin_sessions')
+        .insert({
+          admin_id: admin.id,
+          session_token: sessionToken,
+          expires_at: expiresAt.toISOString(),
+          ip_address: clientIP,
+          user_agent: req.headers.get('user-agent')
+        });
 
-    if (sessionError) {
-      console.error('Session creation error:', sessionError);
+      if (sessionError) {
+        console.error('Session creation error:', sessionError);
+        return new Response(JSON.stringify({ error: 'Login failed' }), {
+          status: 500,
+          headers: { ...allHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    } catch (error) {
+      console.error('Session creation failed:', error);
       return new Response(JSON.stringify({ error: 'Login failed' }), {
         status: 500,
         headers: { ...allHeaders, 'Content-Type': 'application/json' },
@@ -202,24 +252,30 @@ serve(async (req) => {
 
     console.log('Session created successfully');
 
-    // Сбрасываем неудачные попытки и обновляем хеш пароля если нужно
-    const updates: any = { 
-      failed_login_attempts: 0, 
-      locked_until: null,
-      last_login_at: new Date().toISOString()
-    };
+    // Сбрасываем неудачные попытки и обновляем данные входа
+    try {
+      const updates: any = { 
+        failed_login_attempts: 0, 
+        locked_until: null,
+        last_login_at: new Date().toISOString()
+      };
 
-    // Обновляем до улучшенного хеша с уникальной солью пользователя
-    const enhancedHash = await hashPassword(password, admin.id);
-    if (enhancedHash !== admin.password_hash) {
-      updates.password_hash = enhancedHash;
-      console.log('Password hash upgraded for admin:', admin.email);
+      // Обновляем до улучшенного хеша если это простой SHA-256
+      const simpleHash = await hashPasswordSimple(password);
+      if (simpleHash === admin.password_hash) {
+        const enhancedHash = await hashPasswordEnhanced(password, admin.id);
+        updates.password_hash = enhancedHash;
+        console.log('Password hash upgraded for admin:', admin.email);
+      }
+
+      await supabase
+        .from('admins')
+        .update(updates)
+        .eq('id', admin.id);
+    } catch (error) {
+      console.error('Failed to update admin record:', error);
+      // Не возвращаем ошибку, так как основная операция входа успешна
     }
-
-    await supabase
-      .from('admins')
-      .update(updates)
-      .eq('id', admin.id);
 
     // Создаем безопасное httpOnly куки и возвращаем данные сессии
     const cookie = createSecureCookie(sessionToken, expiresAt);

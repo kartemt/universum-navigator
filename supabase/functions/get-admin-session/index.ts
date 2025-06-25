@@ -60,40 +60,60 @@ serve(async (req) => {
       });
     }
 
-    // Сначала проверяем сессию
-    const { data: session, error: sessionError } = await supabase
-      .from('admin_sessions')
-      .select('admin_id, expires_at')
-      .eq('session_token', sessionToken)
-      .gt('expires_at', new Date().toISOString())
-      .single();
+    // Проверяем сессию
+    let session;
+    try {
+      const { data, error: sessionError } = await supabase
+        .from('admin_sessions')
+        .select('admin_id, expires_at')
+        .eq('session_token', sessionToken)
+        .gt('expires_at', new Date().toISOString())
+        .single();
 
-    if (sessionError || !session) {
-      console.log('Invalid or expired session:', sessionError?.message);
-      return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
-        status: 401,
+      if (sessionError || !data) {
+        console.log('Invalid or expired session:', sessionError?.message);
+        return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
+          status: 401,
+          headers: { ...allHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      session = data;
+      console.log('Valid session found for admin_id:', session.admin_id);
+    } catch (error) {
+      console.error('Session query error:', error);
+      return new Response(JSON.stringify({ error: 'Session verification failed' }), {
+        status: 500,
         headers: { ...allHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Valid session found for admin_id:', session.admin_id);
+    // Получаем данные админа
+    let admin;
+    try {
+      const { data, error: adminError } = await supabase
+        .from('admins')
+        .select('id, email')
+        .eq('id', session.admin_id)
+        .single();
 
-    // Теперь получаем данные админа отдельным запросом
-    const { data: admin, error: adminError } = await supabase
-      .from('admins')
-      .select('id, email')
-      .eq('id', session.admin_id)
-      .single();
+      if (adminError || !data) {
+        console.log('Admin not found:', adminError?.message);
+        return new Response(JSON.stringify({ error: 'Admin not found' }), {
+          status: 404,
+          headers: { ...allHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
-    if (adminError || !admin) {
-      console.log('Admin not found:', adminError?.message);
-      return new Response(JSON.stringify({ error: 'Admin not found' }), {
-        status: 404,
+      admin = data;
+      console.log('Admin found:', admin.email);
+    } catch (error) {
+      console.error('Admin query error:', error);
+      return new Response(JSON.stringify({ error: 'Admin lookup failed' }), {
+        status: 500,
         headers: { ...allHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    console.log('Admin found:', admin.email);
 
     return new Response(JSON.stringify({ 
       session: {

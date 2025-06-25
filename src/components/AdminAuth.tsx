@@ -35,7 +35,7 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
     if (!email.trim() || !password) {
       toast({
         title: 'Ошибка',
-        description: GENERIC_ERRORS.INVALID_INPUT,
+        description: 'Введите email и пароль',
         variant: 'destructive',
       });
       return;
@@ -64,13 +64,13 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
       console.error('Admin authentication failed:', error);
       logger.error('Admin authentication failed', { email: email.trim() });
       
-      let errorMessage = GENERIC_ERRORS.AUTH_FAILED;
+      let errorMessage = 'Ошибка входа в систему';
       
       if (error.message.includes('Too many login attempts')) {
         errorMessage = 'Слишком много попыток входа. Попробуйте позже.';
       } else if (error.message.includes('Account is temporarily locked')) {
         errorMessage = 'Аккаунт временно заблокирован из-за многократных неудачных попыток входа.';
-      } else if (error.message.includes('Invalid credentials')) {
+      } else if (error.message.includes('Invalid credentials') || error.message.includes('Неверные данные')) {
         errorMessage = 'Неверный email или пароль';
       } else if (error.message.includes('Access denied from this IP')) {
         errorMessage = 'Доступ запрещен с данного IP-адреса';
@@ -164,9 +164,6 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
                 className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500"
                 disabled={isSubmitting}
               />
-              <div className="text-xs text-gray-500 mt-1">
-                Минимум 12 символов, включая заглавные и строчные буквы, цифры и спецсимволы
-              </div>
             </div>
 
             <Button 

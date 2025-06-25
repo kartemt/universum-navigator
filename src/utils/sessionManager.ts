@@ -1,7 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { logger, GENERIC_ERRORS } from '@/utils/logger';
-import { CSRFProtection } from '@/utils/csrfProtection';
 
 interface SessionData {
   sessionToken: string;
@@ -209,7 +208,6 @@ export class SessionManager {
   private static clearSession(): void {
     console.log('SessionManager: Clearing session data');
     this.currentSession = null;
-    CSRFProtection.clearToken();
   }
 
   /**
