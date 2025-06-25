@@ -1,8 +1,7 @@
-
 import { logger } from './logger';
 
 // Allowed file types and their MIME types
-const ALLOWED_FILE_TYPES = {
+const ALLOWED_FILE_TYPES: Record<string, string[]> = {
   // Images
   'image/jpeg': ['.jpg', '.jpeg'],
   'image/png': ['.png'],
@@ -18,7 +17,7 @@ const ALLOWED_FILE_TYPES = {
   // Archives
   'application/zip': ['.zip'],
   'application/x-zip-compressed': ['.zip'],
-} as const;
+};
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_IMAGE_DIMENSIONS = { width: 4096, height: 4096 };
@@ -44,7 +43,7 @@ export class FileValidator {
       }
 
       // Check if file type is allowed
-      if (!ALLOWED_FILE_TYPES[file.type as keyof typeof ALLOWED_FILE_TYPES]) {
+      if (!ALLOWED_FILE_TYPES[file.type]) {
         return {
           valid: false,
           error: 'Недопустимый тип файла'
@@ -52,7 +51,7 @@ export class FileValidator {
       }
 
       // Validate file extension matches MIME type
-      const allowedExtensions = ALLOWED_FILE_TYPES[file.type as keyof typeof ALLOWED_FILE_TYPES];
+      const allowedExtensions = ALLOWED_FILE_TYPES[file.type];
       const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
       
       if (!allowedExtensions.includes(fileExtension)) {
