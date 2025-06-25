@@ -21,14 +21,18 @@ export const useAdminAuth = () => {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
+        console.log('useAdminAuth: Initializing authentication...');
         const existingSession = await SessionManager.initializeSession();
         if (existingSession && SessionManager.isSessionValid()) {
+          console.log('useAdminAuth: Valid session found for:', existingSession.admin.email);
           setSession(existingSession);
           logger.debug('Valid secure admin session restored');
         } else {
+          console.log('useAdminAuth: No valid session found');
           logger.debug('No valid secure admin session found');
         }
       } catch (error) {
+        console.error('useAdminAuth: Failed to initialize session:', error);
         logger.error('Failed to initialize secure session');
       } finally {
         setIsLoading(false);
@@ -37,15 +41,16 @@ export const useAdminAuth = () => {
 
     initializeAuth();
 
-    // Set up session refresh monitoring
+    // Настраиваем мониторинг обновления сессии
     const refreshInterval = setInterval(async () => {
       const currentSession = SessionManager.getCurrentSession();
       if (currentSession && !SessionManager.isSessionValid()) {
+        console.log('useAdminAuth: Session expired, clearing state');
         logger.debug('Session expired, clearing state');
         setSession(null);
         setForceUpdate(prev => prev + 1);
       }
-    }, 60000); // Check every minute
+    }, 60000); // Проверяем каждую минуту
 
     return () => {
       clearInterval(refreshInterval);
@@ -54,9 +59,9 @@ export const useAdminAuth = () => {
 
   const login = async (email: string, password: string) => {
     try {
-      console.log('Starting login process...');
+      console.log('useAdminAuth: Starting login process for:', email);
       const sessionData = await SessionManager.createSession(email, password);
-      console.log('Session created:', sessionData);
+      console.log('useAdminAuth: Login successful, session created for:', sessionData.admin.email);
       
       // Принудительно обновляем состояние
       setSession(sessionData);
@@ -65,18 +70,20 @@ export const useAdminAuth = () => {
       // Принудительная перерисовка через небольшую задержку
       setTimeout(() => {
         setForceUpdate(prev => prev + 1);
-        console.log('Force update triggered, isAuthenticated should be:', !!sessionData);
+        console.log('useAdminAuth: Force update triggered, isAuthenticated should be:', !!sessionData);
       }, 100);
       
       logger.info('Secure admin login successful', { email });
       return sessionData;
     } catch (error: any) {
+      console.error('useAdminAuth: Login error:', error);
       logger.error('Secure admin login error', { email });
       throw error;
     }
   };
 
   const logout = async () => {
+    console.log('useAdminAuth: Logging out...');
     await SessionManager.destroySession();
     setSession(null);
     setForceUpdate(prev => prev + 1);
@@ -145,7 +152,8 @@ export const useAdminAuth = () => {
     isAuthenticated, 
     isLoading,
     sessionValid: SessionManager.isSessionValid(),
-    forceUpdate 
+    forceUpdate,
+    sessionEmail: session?.admin?.email
   });
 
   return {

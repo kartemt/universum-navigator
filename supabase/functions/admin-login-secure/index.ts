@@ -19,8 +19,15 @@ const securityHeaders = {
 
 const allHeaders = { ...corsHeaders, ...securityHeaders };
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+// Проверяем environment переменные
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
+const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+if (!supabaseUrl || !serviceKey) {
+  console.error('Missing required environment variables');
+  throw new Error('Server configuration error');
+}
+
 const supabase = createClient(supabaseUrl, serviceKey);
 
 function generateSessionToken(): string {
@@ -50,7 +57,7 @@ function extractClientIP(req: Request): string | null {
   return null;
 }
 
-// Enhanced password hashing using PBKDF2 with unique salt
+// Улучшенное хеширование паролей с уникальной солью
 async function hashPassword(password: string, userId?: string): Promise<string> {
   const encoder = new TextEncoder();
   const salt = userId ? `universum_${userId}_salt_2024` : 'universum_salt_2024';
@@ -60,30 +67,35 @@ async function hashPassword(password: string, userId?: string): Promise<string> 
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Verify password against stored hash
+// Проверка пароля с поддержкой всех форматов
 async function verifyPassword(password: string, storedHash: string, userId?: string): Promise<boolean> {
-  // Try new hash format with user-specific salt
-  if (userId) {
-    const newHash = await hashPassword(password, userId);
-    if (newHash === storedHash) {
+  try {
+    // Пробуем новый формат с уникальной солью пользователя
+    if (userId) {
+      const newHash = await hashPassword(password, userId);
+      if (newHash === storedHash) {
+        return true;
+      }
+    }
+    
+    // Пробуем улучшенный формат с общей солью
+    const enhancedHash = await hashPassword(password);
+    if (enhancedHash === storedHash) {
       return true;
     }
+    
+    // Пробуем старый SHA-256 формат для обратной совместимости
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const oldHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    return oldHash === storedHash;
+  } catch (error) {
+    console.error('Password verification error:', error);
+    return false;
   }
-  
-  // Try enhanced hash format
-  const enhancedHash = await hashPassword(password);
-  if (enhancedHash === storedHash) {
-    return true;
-  }
-  
-  // Try old SHA-256 format for backward compatibility
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const oldHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  
-  return oldHash === storedHash;
 }
 
 serve(async (req) => {
@@ -92,7 +104,10 @@ serve(async (req) => {
   }
 
   try {
-    const { email, password } = await req.json();
+    console.log('Secure login request received');
+    
+    const body = await req.json();
+    const { email, password } = body;
     
     if (!email || !password) {
       console.log('Missing email or password');
@@ -102,9 +117,9 @@ serve(async (req) => {
       });
     }
 
-    console.log('Secure login attempt for email:', email);
+    console.log('Login attempt for email:', email);
 
-    // Get admin record
+    // Получаем запись админа
     const { data: admin, error: adminError } = await supabase
       .from('admins')
       .select('*')
@@ -112,7 +127,7 @@ serve(async (req) => {
       .single();
 
     if (adminError || !admin) {
-      console.log('Admin not found or error:', adminError);
+      console.log('Admin not found or error:', adminError?.message);
       return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
         status: 401,
         headers: { ...allHeaders, 'Content-Type': 'application/json' },
@@ -121,7 +136,7 @@ serve(async (req) => {
 
     console.log('Admin found:', admin.email);
 
-    // Check if account is locked
+    // Проверяем блокировку аккаунта
     if (admin.locked_until && new Date(admin.locked_until) > new Date()) {
       console.log('Account is locked until:', admin.locked_until);
       return new Response(JSON.stringify({ 
@@ -132,7 +147,7 @@ serve(async (req) => {
       });
     }
 
-    // Verify password using enhanced verification
+    // Проверяем пароль
     const passwordValid = await verifyPassword(password, admin.password_hash, admin.id);
 
     if (!passwordValid) {
@@ -158,15 +173,15 @@ serve(async (req) => {
 
     console.log('Password verified for admin:', admin.email);
 
-    // Generate session token
+    // Генерируем токен сессии
     const sessionToken = generateSessionToken();
-    const expiresAt = new Date(Date.now() + 1 * 60 * 60 * 1000); // Reduced to 1 hour for security
+    const expiresAt = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 час
 
-    // Extract client IP properly
+    // Извлекаем IP клиента
     const clientIP = extractClientIP(req);
     console.log('Client IP extracted:', clientIP);
 
-    // Create session in database
+    // Создаем сессию в базе данных
     const { error: sessionError } = await supabase
       .from('admin_sessions')
       .insert({
@@ -187,14 +202,14 @@ serve(async (req) => {
 
     console.log('Session created successfully');
 
-    // Reset failed attempts and upgrade password hash if needed
+    // Сбрасываем неудачные попытки и обновляем хеш пароля если нужно
     const updates: any = { 
       failed_login_attempts: 0, 
       locked_until: null,
       last_login_at: new Date().toISOString()
     };
 
-    // Upgrade to enhanced hash with user-specific salt if using old format
+    // Обновляем до улучшенного хеша с уникальной солью пользователя
     const enhancedHash = await hashPassword(password, admin.id);
     if (enhancedHash !== admin.password_hash) {
       updates.password_hash = enhancedHash;
@@ -206,7 +221,7 @@ serve(async (req) => {
       .update(updates)
       .eq('id', admin.id);
 
-    // Set secure httpOnly cookie and return session data
+    // Создаем безопасное httpOnly куки и возвращаем данные сессии
     const cookie = createSecureCookie(sessionToken, expiresAt);
     
     console.log('Secure login successful for admin:', admin.email);

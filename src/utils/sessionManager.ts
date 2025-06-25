@@ -22,6 +22,8 @@ export class SessionManager {
    */
   static async initializeSession(): Promise<SessionData | null> {
     try {
+      console.log('SessionManager: Initializing session...');
+      
       const { data, error } = await supabase.functions.invoke('get-admin-session', {
         headers: {
           ...CSRFProtection.getHeaders(),
@@ -29,19 +31,23 @@ export class SessionManager {
       });
 
       if (error) {
+        console.log('SessionManager: No existing admin session found:', error);
         logger.debug('No existing admin session found');
         return null;
       }
 
       if (data?.session) {
+        console.log('SessionManager: Session restored from server:', data.session.admin.email);
         this.currentSession = data.session;
         this.startRefreshTimer();
         logger.debug('Admin session restored from secure cookie');
         return data.session;
       }
 
+      console.log('SessionManager: No session data received');
       return null;
     } catch (error) {
+      console.error('SessionManager: Failed to initialize session', error);
       logger.error('Failed to initialize session');
       return null;
     }
@@ -52,6 +58,8 @@ export class SessionManager {
    */
   static async createSession(email: string, password: string): Promise<SessionData> {
     try {
+      console.log('SessionManager: Creating session for:', email);
+      
       const { data, error } = await supabase.functions.invoke('admin-login-secure', {
         body: { email, password },
         headers: {
@@ -60,20 +68,24 @@ export class SessionManager {
       });
 
       if (error) {
+        console.error('SessionManager: Login function error:', error);
         logger.error('Secure admin login function error');
         throw new Error(GENERIC_ERRORS.AUTH_FAILED);
       }
 
       if (data?.success && data?.session) {
+        console.log('SessionManager: Session created successfully for:', data.session.admin.email);
         this.currentSession = data.session;
         this.startRefreshTimer();
         logger.info('Secure admin session created', { email });
         return data.session;
       } else {
+        console.warn('SessionManager: Login failed:', data?.error);
         logger.warn('Secure admin login failed', { email });
         throw new Error(data?.error || GENERIC_ERRORS.AUTH_FAILED);
       }
     } catch (error: any) {
+      console.error('SessionManager: Session creation error:', error);
       logger.error('Secure session creation error', { email });
       throw error;
     }
@@ -84,10 +96,13 @@ export class SessionManager {
    */
   static async refreshSession(): Promise<SessionData | null> {
     if (!this.currentSession) {
+      console.log('SessionManager: No current session to refresh');
       return null;
     }
 
     try {
+      console.log('SessionManager: Refreshing session...');
+      
       const { data, error } = await supabase.functions.invoke('refresh-admin-session', {
         headers: {
           ...CSRFProtection.getHeaders(),
@@ -95,15 +110,18 @@ export class SessionManager {
       });
 
       if (error || !data?.session) {
+        console.warn('SessionManager: Session refresh failed:', error);
         logger.warn('Session refresh failed');
         this.clearSession();
         return null;
       }
 
+      console.log('SessionManager: Session refreshed successfully');
       this.currentSession = data.session;
       logger.debug('Admin session refreshed');
       return data.session;
     } catch (error) {
+      console.error('SessionManager: Session refresh error:', error);
       logger.error('Session refresh error');
       this.clearSession();
       return null;
@@ -114,6 +132,7 @@ export class SessionManager {
    * Destroy session and clear cookie
    */
   static async destroySession(): Promise<void> {
+    console.log('SessionManager: Destroying session...');
     this.stopRefreshTimer();
     
     try {
@@ -122,8 +141,10 @@ export class SessionManager {
           ...CSRFProtection.getHeaders(),
         }
       });
+      console.log('SessionManager: Logout successful');
       logger.info('Secure admin logout successful');
     } catch (error) {
+      console.error('SessionManager: Logout error:', error);
       logger.error('Secure admin logout error');
     }
     
@@ -160,9 +181,11 @@ export class SessionManager {
 
     if (timeUntilRefresh > 0) {
       this.refreshTimer = setTimeout(() => {
+        console.log('SessionManager: Auto-refreshing session...');
         this.refreshSession();
       }, timeUntilRefresh);
       
+      console.log('SessionManager: Refresh timer started, will refresh in', Math.round(timeUntilRefresh / 1000 / 60), 'minutes');
       logger.debug('Session refresh timer started', { 
         refreshIn: Math.round(timeUntilRefresh / 1000 / 60) + ' minutes' 
       });
@@ -176,6 +199,7 @@ export class SessionManager {
     if (this.refreshTimer) {
       clearTimeout(this.refreshTimer);
       this.refreshTimer = null;
+      console.log('SessionManager: Refresh timer stopped');
     }
   }
 
@@ -183,6 +207,7 @@ export class SessionManager {
    * Clear session data
    */
   private static clearSession(): void {
+    console.log('SessionManager: Clearing session data');
     this.currentSession = null;
     CSRFProtection.clearToken();
   }
@@ -191,11 +216,17 @@ export class SessionManager {
    * Check if session is valid and not expired
    */
   static isSessionValid(): boolean {
-    if (!this.currentSession) return false;
+    if (!this.currentSession) {
+      console.log('SessionManager: No current session');
+      return false;
+    }
     
     const expiresAt = new Date(this.currentSession.expiresAt).getTime();
     const now = Date.now();
+    const isValid = now < expiresAt;
     
-    return now < expiresAt;
+    console.log('SessionManager: Session validity check:', isValid, 'expires in', Math.round((expiresAt - now) / 1000 / 60), 'minutes');
+    
+    return isValid;
   }
 }

@@ -42,6 +42,7 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
     }
 
     setIsLoading(true);
+    console.log('Starting login process with email:', email.trim());
 
     try {
       console.log('Attempting login...');
@@ -60,6 +61,7 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
       }, 500);
 
     } catch (error: any) {
+      console.error('Admin authentication failed:', error);
       logger.error('Admin authentication failed', { email: email.trim() });
       
       let errorMessage = GENERIC_ERRORS.AUTH_FAILED;
@@ -123,7 +125,7 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
             </div>
             <div className="flex items-center gap-1">
               <Lock className="h-3 w-3 text-blue-600" />
-              <span>bcrypt шифрование</span>
+              <span>SHA-256 шифрование</span>
             </div>
           </div>
         </CardHeader>
@@ -192,7 +194,7 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
                 <ul className="space-y-1 list-disc list-inside">
                   <li>Аккаунт блокируется на 30 минут после 5 неудачных попыток</li>
                   <li>Все действия администратора логируются</li>
-                  <li>Сессии автоматически истекают через 2 часа</li>
+                  <li>Сессии автоматически истекают через 1 час</li>
                 </ul>
               </div>
             </div>

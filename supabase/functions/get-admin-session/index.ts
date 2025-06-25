@@ -19,8 +19,15 @@ const securityHeaders = {
 
 const allHeaders = { ...corsHeaders, ...securityHeaders };
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+// Проверяем environment переменные
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
+const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+if (!supabaseUrl || !serviceKey) {
+  console.error('Missing required environment variables');
+  throw new Error('Server configuration error');
+}
+
 const supabase = createClient(supabaseUrl, serviceKey);
 
 function parseSessionCookie(cookieHeader: string | null): string | null {
@@ -38,38 +45,63 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Get admin session request received');
+    
     const cookieHeader = req.headers.get('cookie');
     const sessionToken = parseSessionCookie(cookieHeader);
     
+    console.log('Session token found:', !!sessionToken);
+    
     if (!sessionToken) {
+      console.log('No session token in cookies');
       return new Response(JSON.stringify({ error: 'No session found' }), {
         status: 401,
         headers: { ...allHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Verify session
-    const { data: session } = await supabase
+    // Сначала проверяем сессию
+    const { data: session, error: sessionError } = await supabase
       .from('admin_sessions')
-      .select('admin_id, expires_at, admins(*)')
+      .select('admin_id, expires_at')
       .eq('session_token', sessionToken)
       .gt('expires_at', new Date().toISOString())
       .single();
 
-    if (!session) {
+    if (sessionError || !session) {
+      console.log('Invalid or expired session:', sessionError?.message);
       return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
         status: 401,
         headers: { ...allHeaders, 'Content-Type': 'application/json' },
       });
     }
 
+    console.log('Valid session found for admin_id:', session.admin_id);
+
+    // Теперь получаем данные админа отдельным запросом
+    const { data: admin, error: adminError } = await supabase
+      .from('admins')
+      .select('id, email')
+      .eq('id', session.admin_id)
+      .single();
+
+    if (adminError || !admin) {
+      console.log('Admin not found:', adminError?.message);
+      return new Response(JSON.stringify({ error: 'Admin not found' }), {
+        status: 404,
+        headers: { ...allHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log('Admin found:', admin.email);
+
     return new Response(JSON.stringify({ 
       session: {
         sessionToken: sessionToken,
         expiresAt: session.expires_at,
         admin: {
-          id: session.admins.id,
-          email: session.admins.email
+          id: admin.id,
+          email: admin.email
         }
       }
     }), {
