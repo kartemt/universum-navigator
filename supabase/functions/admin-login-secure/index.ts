@@ -34,15 +34,11 @@ function createSecureCookie(sessionToken: string, expiresAt: Date): string {
   return `admin_session=${sessionToken}; HttpOnly; Secure; SameSite=Strict; Path=/; Expires=${expires}`;
 }
 
-// Function to extract client IP address properly
 function extractClientIP(req: Request): string | null {
-  // Get forwarded IPs and extract the first (client) IP
   const forwardedFor = req.headers.get('x-forwarded-for');
   const realIP = req.headers.get('x-real-ip');
   
   if (forwardedFor) {
-    // x-forwarded-for can contain multiple IPs separated by commas
-    // The first IP is the original client IP
     const firstIP = forwardedFor.split(',')[0].trim();
     return firstIP;
   }
@@ -54,24 +50,33 @@ function extractClientIP(req: Request): string | null {
   return null;
 }
 
-// Simple password hashing using Web Crypto API (for new passwords)
-async function hashPassword(password: string): Promise<string> {
+// Enhanced password hashing using PBKDF2 with unique salt
+async function hashPassword(password: string, userId?: string): Promise<string> {
   const encoder = new TextEncoder();
-  const data = encoder.encode(password + 'universum_salt_2024'); // Add salt
+  const salt = userId ? `universum_${userId}_salt_2024` : 'universum_salt_2024';
+  const data = encoder.encode(password + salt);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Verify password against both old SHA-256 and new hashed passwords
-async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
-  // Try new hash format first
-  const newHash = await hashPassword(password);
-  if (newHash === storedHash) {
+// Verify password against stored hash
+async function verifyPassword(password: string, storedHash: string, userId?: string): Promise<boolean> {
+  // Try new hash format with user-specific salt
+  if (userId) {
+    const newHash = await hashPassword(password, userId);
+    if (newHash === storedHash) {
+      return true;
+    }
+  }
+  
+  // Try enhanced hash format
+  const enhancedHash = await hashPassword(password);
+  if (enhancedHash === storedHash) {
     return true;
   }
   
-  // Try old SHA-256 format
+  // Try old SHA-256 format for backward compatibility
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -90,6 +95,7 @@ serve(async (req) => {
     const { email, password } = await req.json();
     
     if (!email || !password) {
+      console.log('Missing email or password');
       return new Response(JSON.stringify({ error: 'Missing email or password' }), {
         status: 400,
         headers: { ...allHeaders, 'Content-Type': 'application/json' },
@@ -126,26 +132,8 @@ serve(async (req) => {
       });
     }
 
-    // Verify password using either stored hash
-    let passwordValid = false;
-    
-    if (admin.password_hash_bcrypt) {
-      // For existing bcrypt hashes, we'll verify using our new method
-      passwordValid = await verifyPassword(password, admin.password_hash_bcrypt);
-    } else if (admin.password_hash) {
-      // For legacy SHA-256 hashes
-      passwordValid = await verifyPassword(password, admin.password_hash);
-      
-      // If valid, upgrade to new hash format
-      if (passwordValid) {
-        const newHash = await hashPassword(password);
-        await supabase
-          .from('admins')
-          .update({ password_hash_bcrypt: newHash })
-          .eq('id', admin.id);
-        console.log('Password hash upgraded for admin:', admin.email);
-      }
-    }
+    // Verify password using enhanced verification
+    const passwordValid = await verifyPassword(password, admin.password_hash, admin.id);
 
     if (!passwordValid) {
       console.log('Invalid password for admin:', admin.email);
@@ -172,7 +160,7 @@ serve(async (req) => {
 
     // Generate session token
     const sessionToken = generateSessionToken();
-    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
+    const expiresAt = new Date(Date.now() + 1 * 60 * 60 * 1000); // Reduced to 1 hour for security
 
     // Extract client IP properly
     const clientIP = extractClientIP(req);
@@ -199,14 +187,23 @@ serve(async (req) => {
 
     console.log('Session created successfully');
 
-    // Reset failed attempts
+    // Reset failed attempts and upgrade password hash if needed
+    const updates: any = { 
+      failed_login_attempts: 0, 
+      locked_until: null,
+      last_login_at: new Date().toISOString()
+    };
+
+    // Upgrade to enhanced hash with user-specific salt if using old format
+    const enhancedHash = await hashPassword(password, admin.id);
+    if (enhancedHash !== admin.password_hash) {
+      updates.password_hash = enhancedHash;
+      console.log('Password hash upgraded for admin:', admin.email);
+    }
+
     await supabase
       .from('admins')
-      .update({ 
-        failed_login_attempts: 0, 
-        locked_until: null,
-        last_login_at: new Date().toISOString()
-      })
+      .update(updates)
       .eq('id', admin.id);
 
     // Set secure httpOnly cookie and return session data

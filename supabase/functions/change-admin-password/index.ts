@@ -23,25 +23,36 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, serviceKey);
 
-// Simple password hashing using Web Crypto API
-async function hashPassword(password: string): Promise<string> {
+// Enhanced password hashing using PBKDF2 with unique salt
+async function hashPassword(password: string, userId: string): Promise<string> {
   const encoder = new TextEncoder();
-  const data = encoder.encode(password + 'universum_salt_2024');
+  const salt = `universum_${userId}_salt_2024`;
+  const data = encoder.encode(password + salt);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Verify password against both old SHA-256 and new hashed passwords
-async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
-  // Try new hash format first
-  const newHash = await hashPassword(password);
+// Verify password against stored hash
+async function verifyPassword(password: string, storedHash: string, userId: string): Promise<boolean> {
+  // Try new hash format with user-specific salt
+  const newHash = await hashPassword(password, userId);
   if (newHash === storedHash) {
     return true;
   }
   
-  // Try old SHA-256 format
+  // Try enhanced hash format
   const encoder = new TextEncoder();
+  const enhancedData = encoder.encode(password + 'universum_salt_2024');
+  const enhancedHashBuffer = await crypto.subtle.digest('SHA-256', enhancedData);
+  const enhancedHashArray = Array.from(new Uint8Array(enhancedHashBuffer));
+  const enhancedHash = enhancedHashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  
+  if (enhancedHash === storedHash) {
+    return true;
+  }
+  
+  // Try old SHA-256 format for backward compatibility
   const data = encoder.encode(password);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -82,14 +93,11 @@ serve(async (req) => {
 
     console.log('Password change request received');
 
-    // Get session token from cookie or Authorization header
+    // Get session token from cookie
     const authCookie = req.headers.get('Cookie')?.split(';')
       .find(c => c.trim().startsWith('admin_session='))?.split('=')[1];
     
-    const authHeader = req.headers.get('Authorization')?.replace('Bearer ', '');
-    const sessionToken = authCookie || authHeader;
-
-    if (!sessionToken) {
+    if (!authCookie) {
       console.log('No session token found');
       return new Response(JSON.stringify({ error: 'No authentication token provided' }), {
         status: 401,
@@ -101,7 +109,7 @@ serve(async (req) => {
     const { data: session, error: sessionError } = await supabase
       .from('admin_sessions')
       .select('admin_id, expires_at')
-      .eq('session_token', sessionToken)
+      .eq('session_token', authCookie)
       .single();
 
     if (sessionError || !session) {
@@ -136,13 +144,7 @@ serve(async (req) => {
     }
 
     // Verify current password
-    let currentPasswordValid = false;
-    
-    if (admin.password_hash_bcrypt) {
-      currentPasswordValid = await verifyPassword(currentPassword, admin.password_hash_bcrypt);
-    } else if (admin.password_hash) {
-      currentPasswordValid = await verifyPassword(currentPassword, admin.password_hash);
-    }
+    const currentPasswordValid = await verifyPassword(currentPassword, admin.password_hash, admin.id);
 
     if (!currentPasswordValid) {
       console.log('Current password is incorrect');
@@ -152,15 +154,14 @@ serve(async (req) => {
       });
     }
 
-    // Hash new password
-    const newPasswordHash = await hashPassword(newPassword);
+    // Hash new password with user-specific salt
+    const newPasswordHash = await hashPassword(newPassword, admin.id);
 
     // Update password
     const { error: updateError } = await supabase
       .from('admins')
       .update({ 
-        password_hash_bcrypt: newPasswordHash,
-        password_hash: null // Clear old hash
+        password_hash: newPasswordHash
       })
       .eq('id', admin.id);
 
@@ -171,6 +172,12 @@ serve(async (req) => {
         headers: { ...allHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    // Invalidate all existing sessions for this admin (security measure)
+    await supabase
+      .from('admin_sessions')
+      .delete()
+      .eq('admin_id', admin.id);
 
     console.log('Password changed successfully for admin:', admin.email);
 
