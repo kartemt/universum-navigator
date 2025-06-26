@@ -124,7 +124,6 @@ serve(async (req) => {
   console.log('=== LOGIN REQUEST START ===');
   console.log('Method:', req.method);
   console.log('URL:', req.url);
-  console.log('Headers:', Object.fromEntries(req.headers.entries()));
 
   if (req.method === 'OPTIONS') {
     console.log('CORS preflight request handled');
@@ -134,40 +133,9 @@ serve(async (req) => {
   try {
     console.log('Processing secure login request...');
     
-    // Улучшенное чтение тела запроса
-    let body;
-    let rawBody = '';
-    
-    try {
-      rawBody = await req.text();
-      console.log('Raw request body:', rawBody);
-      console.log('Raw body length:', rawBody.length);
-      
-      if (!rawBody || rawBody.trim() === '') {
-        console.error('Empty request body received');
-        return new Response(JSON.stringify({ 
-          error: 'Empty request body',
-          details: 'No data received in request body' 
-        }), {
-          status: 400,
-          headers: { ...allHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      
-      body = JSON.parse(rawBody);
-      console.log('Parsed body:', body);
-    } catch (parseError) {
-      console.error('Failed to parse request body:', parseError);
-      console.error('Raw body that failed to parse:', rawBody);
-      return new Response(JSON.stringify({ 
-        error: 'Invalid JSON in request body',
-        details: parseError.message,
-        receivedBody: rawBody 
-      }), {
-        status: 400,
-        headers: { ...allHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // УПРОЩЕННОЕ чтение тела запроса - убираем избыточные проверки
+    const body = await req.json();
+    console.log('Parsed body:', body);
     
     const { email, password } = body;
     console.log('Extracted credentials:', { email: email || 'missing', password: password ? 'present' : 'missing' });
@@ -175,8 +143,7 @@ serve(async (req) => {
     if (!email || !password) {
       console.log('Missing credentials - email:', !!email, 'password:', !!password);
       return new Response(JSON.stringify({ 
-        error: 'Missing email or password',
-        received: { email: !!email, password: !!password }
+        error: 'Missing email or password'
       }), {
         status: 400,
         headers: { ...allHeaders, 'Content-Type': 'application/json' },

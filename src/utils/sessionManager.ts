@@ -72,7 +72,7 @@ export class SessionManager {
     try {
       this.addDebugLog(`Creating session for: ${email}`);
       
-      // Подготавливаем данные запроса в правильном формате
+      // Правильная подготовка данных для Supabase Functions
       const requestPayload = { 
         email: email.trim(), 
         password: password 
@@ -80,12 +80,9 @@ export class SessionManager {
       
       this.addDebugLog(`Request payload prepared: ${JSON.stringify({ email: requestPayload.email, password: '[REDACTED]' })}`);
       
-      // Исправленный вызов Edge Function с правильной передачей данных
+      // ИСПРАВЛЕНИЕ: Передаем объект напрямую без JSON.stringify
       const { data, error } = await supabase.functions.invoke('admin-login-secure', {
-        body: JSON.stringify(requestPayload),
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        body: requestPayload
       });
 
       this.addDebugLog(`admin-login-secure response: error=${!!error}, data=${JSON.stringify(data)}`);
