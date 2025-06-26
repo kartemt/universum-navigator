@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Lock, Loader2, Rocket, Shield, AlertTriangle } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
-import { logger, GENERIC_ERRORS } from '@/utils/logger';
+import { logger } from '@/utils/logger';
 
 interface AdminAuthProps {
   onAuthenticated: () => void;
@@ -23,10 +23,12 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
 
   // Debug logging helper - only called in useEffect or events
   const addDebugLog = (message: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    const logMessage = `[${timestamp}] ${message}`;
-    console.log('DEBUG:', logMessage);
-    setDebugInfo(prev => [...prev.slice(-5), logMessage]); // Keep only last 5 logs
+    if (import.meta.env.DEV) {
+      const timestamp = new Date().toLocaleTimeString();
+      const logMessage = `[${timestamp}] ${message}`;
+      console.log('DEBUG:', logMessage);
+      setDebugInfo(prev => [...prev.slice(-3), logMessage]); // Keep only last 3 logs
+    }
   };
 
   // Автоматический переход при успешной аутентификации
@@ -76,14 +78,19 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
       
       let errorMessage = 'Ошибка входа в систему';
       
-      if (error.message.includes('Too many login attempts')) {
-        errorMessage = 'Слишком много попыток входа. Попробуйте позже.';
-      } else if (error.message.includes('Account is temporarily locked')) {
-        errorMessage = 'Аккаунт временно заблокирован из-за многократных неудачных попыток входа.';
-      } else if (error.message.includes('Invalid credentials') || error.message.includes('Неверные данные')) {
+      // Улучшенная обработка ошибок
+      if (error.message.includes('Неверный формат данных')) {
+        errorMessage = 'Ошибка передачи данных. Попробуйте еще раз.';
+      } else if (error.message.includes('Неверные данные для входа') || error.message.includes('Неверный email или пароль')) {
         errorMessage = 'Неверный email или пароль';
+      } else if (error.message.includes('Аккаунт временно заблокирован') || error.message.includes('заблокирован')) {
+        errorMessage = 'Аккаунт временно заблокирован из-за многократных неудачных попыток входа.';
+      } else if (error.message.includes('Too many login attempts')) {
+        errorMessage = 'Слишком много попыток входа. Попробуйте позже.';
       } else if (error.message.includes('Access denied from this IP')) {
         errorMessage = 'Доступ запрещен с данного IP-адреса';
+      } else if (error.message.includes('Invalid credentials')) {
+        errorMessage = 'Неверный email или пароль';
       }
       
       toast({
@@ -105,12 +112,12 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
           <p className="text-white">
             {authState === 'loading' ? 'Проверка сессии...' : 'Переход в админ-панель...'}
           </p>
-          {debugInfo.length > 0 && (
-            <details className="mt-4 text-left bg-black/20 p-2 rounded text-xs">
+          {debugInfo.length > 0 && import.meta.env.DEV && (
+            <details className="mt-4 text-left bg-black/20 p-2 rounded text-xs max-w-md">
               <summary className="cursor-pointer text-white/80">Debug Info</summary>
               <div className="mt-2 space-y-1">
                 {debugInfo.map((log, index) => (
-                  <div key={index} className="text-white/60 font-mono">{log}</div>
+                  <div key={index} className="text-white/60 font-mono text-xs break-all">{log}</div>
                 ))}
               </div>
             </details>
@@ -221,15 +228,15 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
             </div>
           </div>
 
-          {/* Debug panel for development - reduced */}
+          {/* Debug panel for development - only show if there are logs */}
           {debugInfo.length > 0 && import.meta.env.DEV && (
             <details className="mt-4 text-left">
               <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800">
                 Debug Information ({debugInfo.length} logs)
               </summary>
-              <div className="mt-2 max-h-32 overflow-y-auto bg-gray-50 p-2 rounded text-xs space-y-1 border">
+              <div className="mt-2 max-h-24 overflow-y-auto bg-gray-50 p-2 rounded text-xs space-y-1 border">
                 {debugInfo.map((log, index) => (
-                  <div key={index} className="text-gray-700 font-mono break-all">{log}</div>
+                  <div key={index} className="text-gray-700 font-mono break-all text-xs">{log}</div>
                 ))}
               </div>
             </details>

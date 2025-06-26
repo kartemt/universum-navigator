@@ -73,18 +73,20 @@ export class SessionManager {
     try {
       this.addDebugLog(`Creating session for: ${email}`);
       
-      // Fix: Ensure proper data structure and headers
-      const requestBody = { 
+      // Подготавливаем данные запроса
+      const requestData = { 
         email: email.trim(), 
         password: password 
       };
       
-      this.addDebugLog(`Request body prepared: ${JSON.stringify({ email: requestBody.email, password: '[REDACTED]' })}`);
+      this.addDebugLog(`Request data prepared: ${JSON.stringify({ email: requestData.email, password: '[REDACTED]' })}`);
       
+      // Улучшенный вызов Edge Function с явными заголовками
       const { data, error } = await supabase.functions.invoke('admin-login-secure', {
-        body: requestBody,
+        body: requestData,
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json'
         }
       });
 
@@ -93,6 +95,16 @@ export class SessionManager {
       if (error) {
         this.addDebugLog(`Login function error: ${error.message}`);
         console.error('SessionManager: Login function error:', error);
+        
+        // Обработка специфических ошибок
+        if (error.message.includes('400')) {
+          throw new Error('Неверный формат данных запроса');
+        } else if (error.message.includes('401')) {
+          throw new Error('Неверные данные для входа');
+        } else if (error.message.includes('423')) {
+          throw new Error('Аккаунт временно заблокирован');
+        }
+        
         throw new Error(GENERIC_ERRORS.AUTH_FAILED);
       }
 
@@ -102,9 +114,20 @@ export class SessionManager {
         logger.info('Secure admin session created', { email });
         return data.session;
       } else {
-        this.addDebugLog(`Login failed: ${data?.error}`);
+        this.addDebugLog(`Login failed: ${data?.error || 'Unknown error'}`);
         console.warn('SessionManager: Login failed:', data?.error);
-        throw new Error(data?.error || GENERIC_ERRORS.AUTH_FAILED);
+        
+        // Обработка ошибок от сервера
+        if (data?.error) {
+          if (data.error.includes('Invalid credentials')) {
+            throw new Error('Неверный email или пароль');
+          } else if (data.error.includes('locked')) {
+            throw new Error('Аккаунт заблокирован из-за многократных неудачных попыток');
+          }
+          throw new Error(data.error);
+        }
+        
+        throw new Error(GENERIC_ERRORS.AUTH_FAILED);
       }
     } catch (error: any) {
       this.addDebugLog(`Session creation error: ${error.message}`);

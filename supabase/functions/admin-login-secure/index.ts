@@ -23,6 +23,11 @@ const allHeaders = { ...corsHeaders, ...securityHeaders };
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
+console.log('Environment check:', {
+  supabaseUrl: supabaseUrl ? 'present' : 'missing',
+  serviceKey: serviceKey ? 'present' : 'missing'
+});
+
 if (!supabaseUrl || !serviceKey) {
   console.error('Missing required environment variables');
   throw new Error('Server configuration error');
@@ -116,29 +121,63 @@ async function verifyPassword(password: string, storedHash: string, userId?: str
 }
 
 serve(async (req) => {
+  console.log('=== LOGIN REQUEST START ===');
+  console.log('Method:', req.method);
+  console.log('URL:', req.url);
+  console.log('Headers:', Object.fromEntries(req.headers.entries()));
+
   if (req.method === 'OPTIONS') {
+    console.log('CORS preflight request handled');
     return new Response(null, { headers: allHeaders });
   }
 
   try {
-    console.log('Secure login request received');
+    console.log('Processing secure login request...');
     
+    // Улучшенное чтение тела запроса
     let body;
+    let rawBody = '';
+    
     try {
-      body = await req.json();
-    } catch (error) {
-      console.error('Failed to parse request body:', error);
-      return new Response(JSON.stringify({ error: 'Invalid request body' }), {
+      rawBody = await req.text();
+      console.log('Raw request body:', rawBody);
+      console.log('Raw body length:', rawBody.length);
+      
+      if (!rawBody || rawBody.trim() === '') {
+        console.error('Empty request body received');
+        return new Response(JSON.stringify({ 
+          error: 'Empty request body',
+          details: 'No data received in request body' 
+        }), {
+          status: 400,
+          headers: { ...allHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      body = JSON.parse(rawBody);
+      console.log('Parsed body:', body);
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError);
+      console.error('Raw body that failed to parse:', rawBody);
+      return new Response(JSON.stringify({ 
+        error: 'Invalid JSON in request body',
+        details: parseError.message,
+        receivedBody: rawBody 
+      }), {
         status: 400,
         headers: { ...allHeaders, 'Content-Type': 'application/json' },
       });
     }
     
     const { email, password } = body;
+    console.log('Extracted credentials:', { email: email || 'missing', password: password ? 'present' : 'missing' });
     
     if (!email || !password) {
-      console.log('Missing email or password');
-      return new Response(JSON.stringify({ error: 'Missing email or password' }), {
+      console.log('Missing credentials - email:', !!email, 'password:', !!password);
+      return new Response(JSON.stringify({ 
+        error: 'Missing email or password',
+        received: { email: !!email, password: !!password }
+      }), {
         status: 400,
         headers: { ...allHeaders, 'Content-Type': 'application/json' },
       });
@@ -149,11 +188,14 @@ serve(async (req) => {
     // Получаем запись админа
     let admin;
     try {
+      console.log('Querying admin table for email:', email.toLowerCase().trim());
       const { data, error: adminError } = await supabase
         .from('admins')
         .select('*')
         .eq('email', email.toLowerCase().trim())
         .single();
+
+      console.log('Admin query result:', { data: !!data, error: adminError?.message });
 
       if (adminError || !data) {
         console.log('Admin not found or error:', adminError?.message);
@@ -164,7 +206,7 @@ serve(async (req) => {
       }
       
       admin = data;
-      console.log('Admin found:', admin.email);
+      console.log('Admin found:', { id: admin.id, email: admin.email });
     } catch (error) {
       console.error('Database query error:', error);
       return new Response(JSON.stringify({ error: 'Database error' }), {
@@ -185,7 +227,9 @@ serve(async (req) => {
     }
 
     // Проверяем пароль
+    console.log('Verifying password...');
     const passwordValid = await verifyPassword(password, admin.password_hash, admin.id);
+    console.log('Password verification result:', passwordValid);
 
     if (!passwordValid) {
       console.log('Invalid password for admin:', admin.email);
@@ -218,6 +262,7 @@ serve(async (req) => {
     // Генерируем токен сессии
     const sessionToken = generateSessionToken();
     const expiresAt = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 час
+    console.log('Generated session token and expiry:', { tokenLength: sessionToken.length, expiresAt });
 
     // Извлекаем IP клиента
     const clientIP = extractClientIP(req);
@@ -225,6 +270,7 @@ serve(async (req) => {
 
     // Создаем сессию в базе данных
     try {
+      console.log('Creating session in database...');
       const { error: sessionError } = await supabase
         .from('admin_sessions')
         .insert({
@@ -281,6 +327,7 @@ serve(async (req) => {
     const cookie = createSecureCookie(sessionToken, expiresAt);
     
     console.log('Secure login successful for admin:', admin.email);
+    console.log('=== LOGIN REQUEST SUCCESS ===');
     
     return new Response(JSON.stringify({ 
       success: true,
@@ -302,7 +349,11 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Secure login error:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    console.log('=== LOGIN REQUEST ERROR ===');
+    return new Response(JSON.stringify({ 
+      error: 'Internal server error',
+      details: error.message 
+    }), {
       status: 500,
       headers: { ...allHeaders, 'Content-Type': 'application/json' },
     });
