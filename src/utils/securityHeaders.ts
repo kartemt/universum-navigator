@@ -4,11 +4,11 @@ export const SECURITY_HEADERS = {
   // Content Security Policy - prevents XSS attacks
   'Content-Security-Policy': [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://static.cloudflareinsights.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https: blob:",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cloudflareinsights.com",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'"
@@ -54,14 +54,11 @@ export const applySecurityHeaders = (isProduction: boolean = false) => {
   return headers;
 };
 
-// Apply security headers to HTML meta tags for client-side enforcement
+// Note: CSP and X-Frame-Options should be set via HTTP headers, not meta tags
+// This function is kept for reference but headers should be configured at server level
 export const generateSecurityMetaTags = () => {
   return `
-    <meta http-equiv="Content-Security-Policy" content="${SECURITY_HEADERS['Content-Security-Policy']}">
-    <meta http-equiv="X-Frame-Options" content="${SECURITY_HEADERS['X-Frame-Options']}">
-    <meta http-equiv="X-Content-Type-Options" content="${SECURITY_HEADERS['X-Content-Type-Options']}">
-    <meta http-equiv="X-XSS-Protection" content="${SECURITY_HEADERS['X-XSS-Protection']}">
-    <meta http-equiv="Referrer-Policy" content="${SECURITY_HEADERS['Referrer-Policy']}">
-    <meta http-equiv="Permissions-Policy" content="${SECURITY_HEADERS['Permissions-Policy']}">
+    <!-- Note: These meta tags have limited effectiveness. Configure via HTTP headers instead -->
+    <meta name="referrer" content="strict-origin-when-cross-origin">
   `;
 };

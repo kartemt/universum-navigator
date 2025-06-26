@@ -47,12 +47,30 @@ class SecureLogger {
     const sanitizedData = data ? this.sanitizeData(data) : undefined;
     const timestamp = new Date().toISOString();
     
+    // Fix: Use direct console methods instead of dynamic access
     if (this.isDevelopment) {
-      console[level](`[${timestamp}] ${message}`, sanitizedData || '');
+      switch (level) {
+        case 'ERROR':
+          console.error(`[${timestamp}] ${message}`, sanitizedData || '');
+          break;
+        case 'WARN':
+          console.warn(`[${timestamp}] ${message}`, sanitizedData || '');
+          break;
+        case 'INFO':
+          console.info(`[${timestamp}] ${message}`, sanitizedData || '');
+          break;
+        case 'DEBUG':
+          console.debug(`[${timestamp}] ${message}`, sanitizedData || '');
+          break;
+        default:
+          console.log(`[${timestamp}] ${message}`, sanitizedData || '');
+      }
     } else {
       // In production, only log errors and warnings
-      if (level === 'ERROR' || level === 'WARN') {
-        console[level](`[${timestamp}] ${message}`);
+      if (level === 'ERROR') {
+        console.error(`[${timestamp}] ${message}`);
+      } else if (level === 'WARN') {
+        console.warn(`[${timestamp}] ${message}`);
       }
     }
   }

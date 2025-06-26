@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { logger, GENERIC_ERRORS } from '@/utils/logger';
 
@@ -71,8 +70,16 @@ export class SessionManager {
     try {
       this.addDebugLog(`Creating session for: ${email}`);
       
+      // Fix: Ensure proper data structure and headers
+      const requestBody = { 
+        email: email.trim(), 
+        password: password 
+      };
+      
+      this.addDebugLog(`Request body prepared: ${JSON.stringify({ email: requestBody.email, password: '[REDACTED]' })}`);
+      
       const { data, error } = await supabase.functions.invoke('admin-login-secure', {
-        body: { email, password },
+        body: requestBody,
         headers: {
           'Content-Type': 'application/json',
         }
