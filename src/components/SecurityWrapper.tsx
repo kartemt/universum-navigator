@@ -4,6 +4,7 @@ import { useSecurity } from '@/hooks/useSecurity';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield } from 'lucide-react';
 import { SecurityHeadersManager } from '@/utils/security';
+import { setupCSPReporting } from '@/utils/securityHeaders';
 
 interface SecurityWrapperProps {
   children: React.ReactNode;
@@ -22,10 +23,20 @@ export const SecurityWrapper = ({ children, protectContent = false }: SecurityWr
     // Setup security monitoring
     securityManager.setupSecurityMonitoring();
     
+    // Setup CSP violation reporting
+    setupCSPReporting();
+    
     // Validate secure context
     if (!securityManager.isSecureContext() && import.meta.env.PROD) {
       console.warn('Application is not running in a secure context (HTTPS)');
     }
+    
+    // Log security initialization
+    console.log('Security measures initialized:', {
+      secureContext: securityManager.isSecureContext(),
+      environment: import.meta.env.PROD ? 'production' : 'development',
+      cspReporting: 'enabled'
+    });
   }, []);
 
   const content = (
