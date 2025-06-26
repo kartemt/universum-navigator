@@ -21,12 +21,12 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
   const { toast } = useToast();
   const { login, isAuthenticated, isLoading, authState } = useAdminAuth();
 
-  // Debug logging helper
+  // Debug logging helper - only called in useEffect or events
   const addDebugLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
     const logMessage = `[${timestamp}] ${message}`;
     console.log('DEBUG:', logMessage);
-    setDebugInfo(prev => [...prev.slice(-10), logMessage]); // Keep last 10 logs
+    setDebugInfo(prev => [...prev.slice(-5), logMessage]); // Keep only last 5 logs
   };
 
   // Автоматический переход при успешной аутентификации
@@ -39,10 +39,9 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
     }
   }, [isAuthenticated, authState, onAuthenticated]);
 
-  // Debug info on mount
+  // Debug info on mount - only once
   useEffect(() => {
     addDebugLog('AdminAuth component mounted');
-    addDebugLog(`Initial state: isAuthenticated=${isAuthenticated}, authState=${authState}, isLoading=${isLoading}`);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -63,11 +62,7 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
     try {
       addDebugLog('Calling login function...');
       const sessionData = await login(email.trim(), password);
-      addDebugLog(`Login successful, session data received: ${JSON.stringify({
-        sessionToken: !!sessionData.sessionToken,
-        expiresAt: sessionData.expiresAt,
-        adminEmail: sessionData.admin.email
-      })}`);
+      addDebugLog(`Login successful, session data received`);
       
       toast({
         title: 'Доступ разрешен',
@@ -103,7 +98,6 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
 
   // Показывать загрузку во время инициализации или аутентификации
   if (isLoading) {
-    addDebugLog(`Showing loading state: authState=${authState}`);
     return (
       <div className="min-h-screen bg-universum-gradient flex items-center justify-center p-4">
         <div className="text-center">
@@ -227,13 +221,13 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
             </div>
           </div>
 
-          {/* Debug panel for development */}
-          {debugInfo.length > 0 && (
+          {/* Debug panel for development - reduced */}
+          {debugInfo.length > 0 && import.meta.env.DEV && (
             <details className="mt-4 text-left">
               <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800">
                 Debug Information ({debugInfo.length} logs)
               </summary>
-              <div className="mt-2 max-h-40 overflow-y-auto bg-gray-50 p-2 rounded text-xs space-y-1 border">
+              <div className="mt-2 max-h-32 overflow-y-auto bg-gray-50 p-2 rounded text-xs space-y-1 border">
                 {debugInfo.map((log, index) => (
                   <div key={index} className="text-gray-700 font-mono break-all">{log}</div>
                 ))}

@@ -18,7 +18,7 @@ export const useAdminAuth = () => {
   const [session, setSession] = useState<AdminSession | null>(null);
   const [authState, setAuthState] = useState<AuthState>('loading');
 
-  // Debug logging helper
+  // Debug logging helper - only use in useEffect or event handlers
   const addDebugLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
     console.log(`[${timestamp}] useAdminAuth: ${message}`);
@@ -110,8 +110,6 @@ export const useAdminAuth = () => {
 
   const isAuthenticated = authState === 'authenticated' && !!session && SessionManager.isSessionValid();
   const isLoading = authState === 'loading';
-  
-  addDebugLog(`Current state: session=${!!session}, isAuthenticated=${isAuthenticated}, isLoading=${isLoading}, authState=${authState}, sessionEmail=${session?.admin?.email}`);
 
   return {
     session,

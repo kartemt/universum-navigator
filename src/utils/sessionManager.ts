@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { logger, GENERIC_ERRORS } from '@/utils/logger';
 
@@ -14,10 +15,12 @@ export class SessionManager {
   private static currentSession: SessionData | null = null;
   private static isInitialized = false;
 
-  // Debug logging helper
+  // Debug logging helper - only when needed
   private static addDebugLog(message: string) {
-    const timestamp = new Date().toLocaleTimeString();
-    console.log(`[${timestamp}] SessionManager: ${message}`);
+    if (import.meta.env.DEV) {
+      const timestamp = new Date().toLocaleTimeString();
+      console.log(`[${timestamp}] SessionManager: ${message}`);
+    }
   }
 
   /**
@@ -182,15 +185,12 @@ export class SessionManager {
    */
   static isSessionValid(): boolean {
     if (!this.currentSession) {
-      this.addDebugLog('No current session for validation');
       return false;
     }
     
     const expiresAt = new Date(this.currentSession.expiresAt).getTime();
     const now = Date.now();
     const isValid = now < expiresAt;
-    
-    this.addDebugLog(`Session validation: expires=${new Date(expiresAt).toLocaleString()}, now=${new Date(now).toLocaleString()}, valid=${isValid}`);
     
     if (!isValid) {
       this.addDebugLog('Session expired');
