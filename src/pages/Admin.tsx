@@ -7,25 +7,14 @@ import { SecurityWrapper } from '@/components/SecurityWrapper';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 
 const Admin = () => {
-  const { isAuthenticated, isLoading, authState, session } = useAdminAuth();
+  const { isAuthenticated, isLoading, authState, session, login } = useAdminAuth();
 
-  // Detailed state logging for debugging
+  // Simplified logging for debugging
   React.useEffect(() => {
-    const timestamp = new Date().toLocaleTimeString();
-    console.log(`[${timestamp}] Admin component state:`, {
-      isAuthenticated,
-      isLoading,
-      authState,
-      hasSession: !!session,
-      sessionEmail: session?.admin?.email,
-      shouldShowPanel: isAuthenticated && authState === 'authenticated'
-    });
-  }, [isAuthenticated, isLoading, authState, session]);
-
-  const handleAuthenticated = () => {
-    console.log('handleAuthenticated called - will trigger re-render');
-    // Компонент автоматически перерендерится когда useAdminAuth обновит состояние
-  };
+    if (authState !== 'loading') {
+      console.log(`[${new Date().toLocaleTimeString()}] Admin: authState=${authState}, isAuthenticated=${isAuthenticated}, hasSession=${!!session}`);
+    }
+  }, [authState, isAuthenticated, session]);
 
   if (isLoading) {
     return (
@@ -40,11 +29,9 @@ const Admin = () => {
     );
   }
 
-  // Simplified condition: show panel if authenticated OR if we have a valid session
-  const shouldShowAdminPanel = isAuthenticated || (authState === 'authenticated' && session);
-  
-  if (shouldShowAdminPanel) {
-    console.log('Rendering AdminPanel - authentication successful');
+  // Show admin panel if authenticated
+  if (authState === 'authenticated' && session) {
+    console.log(`[${new Date().toLocaleTimeString()}] Admin: Rendering AdminPanel for ${session.admin.email}`);
     return (
       <SecurityWrapper protectContent={true}>
         <AdminPanel />
@@ -54,10 +41,10 @@ const Admin = () => {
   }
 
   // Show login form if not authenticated
-  console.log('Rendering AdminAuth - user not authenticated');
+  console.log(`[${new Date().toLocaleTimeString()}] Admin: Rendering AdminAuth - user not authenticated`);
   return (
     <SecurityWrapper>
-      <AdminAuth onAuthenticated={handleAuthenticated} />
+      <AdminAuth onLogin={login} isLoading={isLoading} />
       <ScrollToTop />
     </SecurityWrapper>
   );

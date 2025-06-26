@@ -1,50 +1,23 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Lock, Loader2, Rocket, Shield, AlertTriangle } from 'lucide-react';
-import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { logger } from '@/utils/logger';
 
 interface AdminAuthProps {
-  onAuthenticated: () => void;
+  onLogin: (email: string, password: string) => Promise<void>;
+  isLoading: boolean;
 }
 
-export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
+export const AdminAuth = ({ onLogin, isLoading }: AdminAuthProps) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string[]>([]);
   const { toast } = useToast();
-  const { login, isAuthenticated, isLoading, authState } = useAdminAuth();
-
-  // Debug logging helper - only called in useEffect or events
-  const addDebugLog = (message: string) => {
-    if (import.meta.env.DEV) {
-      const timestamp = new Date().toLocaleTimeString();
-      const logMessage = `[${timestamp}] ${message}`;
-      console.log('DEBUG:', logMessage);
-      setDebugInfo(prev => [...prev.slice(-4), logMessage]); // Keep only last 4 logs
-    }
-  };
-
-  // Автоматический переход при успешной аутентификации
-  useEffect(() => {
-    addDebugLog(`Auth state changed: isAuthenticated=${isAuthenticated}, authState=${authState}`);
-    
-    if (isAuthenticated && authState === 'authenticated') {
-      addDebugLog('User is authenticated, calling onAuthenticated');
-      onAuthenticated();
-    }
-  }, [isAuthenticated, authState, onAuthenticated]);
-
-  // Debug info on mount - only once
-  useEffect(() => {
-    addDebugLog('AdminAuth component mounted');
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,13 +32,10 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
     }
 
     setIsSubmitting(true);
-    addDebugLog(`Starting login process with email: ${email.trim()}`);
-    addDebugLog(`Request data being sent: email=${email.trim()}, password=[length: ${password.length}]`);
+    console.log(`[${new Date().toLocaleTimeString()}] AdminAuth: Starting login process with email: ${email.trim()}`);
 
     try {
-      addDebugLog('Calling login function...');
-      const sessionData = await login(email.trim(), password);
-      addDebugLog(`Login successful, session data received`);
+      await onLogin(email.trim(), password);
       
       toast({
         title: 'Доступ разрешен',
@@ -73,13 +43,11 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
       });
 
     } catch (error: any) {
-      addDebugLog(`Login error: ${error.message}`);
       console.error('Admin authentication failed:', error);
       logger.error('Admin authentication failed', { email: email.trim() });
       
       let errorMessage = 'Ошибка входа в систему';
       
-      // Улучшенная обработка ошибок
       if (error.message.includes('Неверный формат данных')) {
         errorMessage = 'Ошибка передачи данных. Попробуйте еще раз.';
       } else if (error.message.includes('Неверные данные для входа') || error.message.includes('Неверный email или пароль')) {
@@ -104,25 +72,12 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
     }
   };
 
-  // Показывать загрузку во время инициализации или аутентификации
   if (isLoading) {
     return (
       <div className="min-h-screen bg-universum-gradient flex items-center justify-center p-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-white">
-            {authState === 'loading' ? 'Проверка сессии...' : 'Переход в админ-панель...'}
-          </p>
-          {debugInfo.length > 0 && import.meta.env.DEV && (
-            <details className="mt-4 text-left bg-black/20 p-2 rounded text-xs max-w-md">
-              <summary className="cursor-pointer text-white/80">Debug Info</summary>
-              <div className="mt-2 space-y-1">
-                {debugInfo.map((log, index) => (
-                  <div key={index} className="text-white/60 font-mono text-xs break-all">{log}</div>
-                ))}
-              </div>
-            </details>
-          )}
+          <p className="text-white">Проверка сессии...</p>
         </div>
       </div>
     );
@@ -228,20 +183,6 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
               </div>
             </div>
           </div>
-
-          {/* Enhanced debug panel for development */}
-          {debugInfo.length > 0 && import.meta.env.DEV && (
-            <details className="mt-4 text-left">
-              <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800">
-                🔧 Debug Information ({debugInfo.length} logs)
-              </summary>
-              <div className="mt-2 max-h-32 overflow-y-auto bg-gray-50 p-3 rounded text-xs space-y-1 border">
-                {debugInfo.map((log, index) => (
-                  <div key={index} className="text-gray-700 font-mono break-all text-xs border-b border-gray-200 pb-1">{log}</div>
-                ))}
-              </div>
-            </details>
-          )}
         </CardContent>
       </Card>
     </div>
