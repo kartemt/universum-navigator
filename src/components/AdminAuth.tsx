@@ -27,7 +27,7 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
       const timestamp = new Date().toLocaleTimeString();
       const logMessage = `[${timestamp}] ${message}`;
       console.log('DEBUG:', logMessage);
-      setDebugInfo(prev => [...prev.slice(-3), logMessage]); // Keep only last 3 logs
+      setDebugInfo(prev => [...prev.slice(-4), logMessage]); // Keep only last 4 logs
     }
   };
 
@@ -60,6 +60,7 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
 
     setIsSubmitting(true);
     addDebugLog(`Starting login process with email: ${email.trim()}`);
+    addDebugLog(`Request data being sent: email=${email.trim()}, password=[length: ${password.length}]`);
 
     try {
       addDebugLog('Calling login function...');
@@ -228,15 +229,15 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
             </div>
           </div>
 
-          {/* Debug panel for development - only show if there are logs */}
+          {/* Enhanced debug panel for development */}
           {debugInfo.length > 0 && import.meta.env.DEV && (
             <details className="mt-4 text-left">
               <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800">
-                Debug Information ({debugInfo.length} logs)
+                🔧 Debug Information ({debugInfo.length} logs)
               </summary>
-              <div className="mt-2 max-h-24 overflow-y-auto bg-gray-50 p-2 rounded text-xs space-y-1 border">
+              <div className="mt-2 max-h-32 overflow-y-auto bg-gray-50 p-3 rounded text-xs space-y-1 border">
                 {debugInfo.map((log, index) => (
-                  <div key={index} className="text-gray-700 font-mono break-all text-xs">{log}</div>
+                  <div key={index} className="text-gray-700 font-mono break-all text-xs border-b border-gray-200 pb-1">{log}</div>
                 ))}
               </div>
             </details>

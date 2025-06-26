@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { logger, GENERIC_ERRORS } from '@/utils/logger';
 
@@ -73,20 +72,19 @@ export class SessionManager {
     try {
       this.addDebugLog(`Creating session for: ${email}`);
       
-      // Подготавливаем данные запроса
-      const requestData = { 
+      // Подготавливаем данные запроса в правильном формате
+      const requestPayload = { 
         email: email.trim(), 
         password: password 
       };
       
-      this.addDebugLog(`Request data prepared: ${JSON.stringify({ email: requestData.email, password: '[REDACTED]' })}`);
+      this.addDebugLog(`Request payload prepared: ${JSON.stringify({ email: requestPayload.email, password: '[REDACTED]' })}`);
       
-      // Улучшенный вызов Edge Function с явными заголовками
+      // Исправленный вызов Edge Function с правильной передачей данных
       const { data, error } = await supabase.functions.invoke('admin-login-secure', {
-        body: requestData,
+        body: JSON.stringify(requestPayload),
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Content-Type': 'application/json'
         }
       });
 
