@@ -25,15 +25,14 @@ export const useAdminAuth = () => {
   };
 
   useEffect(() => {
-    let isMounted = true; // Флаг для предотвращения обновлений после unmount
+    let isMounted = true;
     
     const initializeAuth = async () => {
       try {
-        addDebugLog('Initializing authentication...');
+        addDebugLog('Initializing authentication from memory...');
         
         const existingSession = await SessionManager.initializeSession();
         
-        // Проверяем, что компонент еще mounted
         if (!isMounted) {
           addDebugLog('Component unmounted, skipping state update');
           return;
@@ -45,12 +44,12 @@ export const useAdminAuth = () => {
           addDebugLog(`Valid session found for: ${existingSession.admin.email}`);
           setSession(existingSession);
           setAuthState('authenticated');
-          logger.debug('Valid secure admin session restored');
+          logger.debug('Valid admin session restored from memory');
         } else {
           addDebugLog('No valid session found');
           setSession(null);
           setAuthState('unauthenticated');
-          logger.debug('No valid secure admin session found');
+          logger.debug('No valid admin session found');
         }
       } catch (error) {
         addDebugLog(`Failed to initialize session: ${error}`);
@@ -60,17 +59,16 @@ export const useAdminAuth = () => {
         
         setSession(null);
         setAuthState('unauthenticated');
-        logger.error('Failed to initialize secure session');
+        logger.error('Failed to initialize session');
       }
     };
 
     initializeAuth();
     
-    // Cleanup function
     return () => {
       isMounted = false;
     };
-  }, []); // Пустой массив зависимостей - выполняется только один раз
+  }, []);
 
   const login = async (email: string, password: string) => {
     try {
@@ -83,14 +81,14 @@ export const useAdminAuth = () => {
       setSession(sessionData);
       setAuthState('authenticated');
       
-      logger.info('Secure admin login successful', { email });
+      logger.info('Admin login successful', { email });
       return sessionData;
     } catch (error: any) {
       addDebugLog(`Login error: ${error.message}`);
       console.error('useAdminAuth: Login error:', error);
       setSession(null);
       setAuthState('unauthenticated');
-      logger.error('Secure admin login error', { email });
+      logger.error('Admin login error', { email });
       throw error;
     }
   };
@@ -102,8 +100,6 @@ export const useAdminAuth = () => {
       await SessionManager.changePassword(currentPassword, newPassword);
       addDebugLog('Password changed successfully');
       
-      // After password change, all sessions are invalidated
-      // User will need to login again
       setSession(null);
       setAuthState('unauthenticated');
       
@@ -122,7 +118,7 @@ export const useAdminAuth = () => {
     await SessionManager.destroySession();
     setSession(null);
     setAuthState('unauthenticated');
-    logger.info('Secure admin logout completed');
+    logger.info('Admin logout completed');
   };
 
   const isAuthenticated = authState === 'authenticated' && !!session && SessionManager.isSessionValid();

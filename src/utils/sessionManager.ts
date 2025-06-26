@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { logger, GENERIC_ERRORS } from '@/utils/logger';
 
@@ -13,7 +14,6 @@ interface SessionData {
 export class SessionManager {
   private static currentSession: SessionData | null = null;
   private static isInitialized = false;
-  private static initializationPromise: Promise<SessionData | null> | null = null;
 
   // Debug logging helper - only when needed
   private static addDebugLog(message: string) {
@@ -24,57 +24,23 @@ export class SessionManager {
   }
 
   /**
-   * Initialize session from secure cookie via server
+   * Initialize session from memory (no server calls)
    */
   static async initializeSession(): Promise<SessionData | null> {
-    // Предотвращаем множественную инициализацию
-    if (this.initializationPromise) {
-      this.addDebugLog('Initialization already in progress, waiting...');
-      return this.initializationPromise;
-    }
-
     if (this.isInitialized) {
       this.addDebugLog(`Already initialized, returning cached session: ${!!this.currentSession}`);
       return this.currentSession;
     }
 
-    // Создаем promise для инициализации
-    this.initializationPromise = this.performInitialization();
-    const result = await this.initializationPromise;
-    this.initializationPromise = null;
+    this.addDebugLog('Initializing session from memory...');
     
-    return result;
-  }
-
-  private static async performInitialization(): Promise<SessionData | null> {
-    try {
-      this.addDebugLog('Initializing session...');
-      
-      const { data, error } = await supabase.functions.invoke('get-admin-session', {
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-
-      this.addDebugLog(`get-admin-session response: error=${!!error}, data=${JSON.stringify(data)}`);
-
-      if (error) {
-        this.addDebugLog(`No existing admin session found: ${error.message}`);
-        this.currentSession = null;
-      } else if (data?.session) {
-        this.addDebugLog(`Session restored from server: ${data.session.admin.email}`);
-        this.currentSession = data.session;
-        logger.debug('Admin session restored from secure cookie');
-      } else {
-        this.addDebugLog('No session data received');
-        this.currentSession = null;
-      }
-
+    // Simply check if we have a valid session in memory
+    if (this.currentSession && this.isSessionValid()) {
+      this.addDebugLog(`Valid session found in memory: ${this.currentSession.admin.email}`);
       this.isInitialized = true;
       return this.currentSession;
-    } catch (error) {
-      this.addDebugLog(`Failed to initialize session: ${error}`);
-      console.error('SessionManager: Failed to initialize session', error);
+    } else {
+      this.addDebugLog('No valid session in memory');
       this.currentSession = null;
       this.isInitialized = true;
       return null;
@@ -82,13 +48,12 @@ export class SessionManager {
   }
 
   /**
-   * Create new session with httpOnly cookie
+   * Create new session with token
    */
   static async createSession(email: string, password: string): Promise<SessionData> {
     try {
       this.addDebugLog(`Creating session for: ${email}`);
       
-      // Правильная подготовка данных для Supabase Functions
       const requestPayload = { 
         email: email.trim(), 
         password: password 
@@ -96,7 +61,6 @@ export class SessionManager {
       
       this.addDebugLog(`Request payload prepared: ${JSON.stringify({ email: requestPayload.email, password: '[REDACTED]' })}`);
       
-      // ИСПРАВЛЕНИЕ: Передаем объект напрямую без JSON.stringify
       const { data, error } = await supabase.functions.invoke('admin-login-secure', {
         body: requestPayload
       });
@@ -107,7 +71,6 @@ export class SessionManager {
         this.addDebugLog(`Login function error: ${error.message}`);
         console.error('SessionManager: Login function error:', error);
         
-        // Обработка специфических ошибок
         if (error.message.includes('400')) {
           throw new Error('Неверный формат данных запроса');
         } else if (error.message.includes('401')) {
@@ -122,14 +85,13 @@ export class SessionManager {
       if (data?.success && data?.session) {
         this.addDebugLog(`Session created successfully for: ${data.session.admin.email}`);
         this.currentSession = data.session;
-        this.isInitialized = true; // Помечаем как инициализированный после успешного создания
+        this.isInitialized = true;
         logger.info('Secure admin session created', { email });
         return data.session;
       } else {
         this.addDebugLog(`Login failed: ${data?.error || 'Unknown error'}`);
         console.warn('SessionManager: Login failed:', data?.error);
         
-        // Обработка ошибок от сервера
         if (data?.error) {
           if (data.error.includes('Invalid credentials')) {
             throw new Error('Неверный email или пароль');
@@ -159,6 +121,7 @@ export class SessionManager {
         body: { currentPassword, newPassword },
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.currentSession?.sessionToken}`
         }
       });
 
@@ -170,7 +133,6 @@ export class SessionManager {
 
       if (data?.success) {
         this.addDebugLog('Password changed successfully');
-        // Password change invalidates all sessions, so clear current session
         this.currentSession = null;
         this.isInitialized = false;
         logger.info('Admin password changed successfully');
@@ -187,7 +149,7 @@ export class SessionManager {
   }
 
   /**
-   * Destroy session and clear cookie
+   * Destroy session
    */
   static async destroySession(): Promise<void> {
     this.addDebugLog('Destroying session...');
@@ -196,6 +158,7 @@ export class SessionManager {
       await supabase.functions.invoke('admin-logout-secure', {
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.currentSession?.sessionToken}`
         }
       });
       this.addDebugLog('Logout successful');
@@ -206,7 +169,6 @@ export class SessionManager {
     
     this.currentSession = null;
     this.isInitialized = false;
-    this.initializationPromise = null; // Сбрасываем promise инициализации
   }
 
   /**
@@ -243,6 +205,5 @@ export class SessionManager {
     this.addDebugLog('Resetting session manager');
     this.currentSession = null;
     this.isInitialized = false;
-    this.initializationPromise = null;
   }
 }
