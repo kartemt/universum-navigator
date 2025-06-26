@@ -69,6 +69,26 @@ export const useAdminAuth = () => {
     }
   };
 
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    try {
+      console.log('useAdminAuth: Starting password change...');
+      
+      await SessionManager.changePassword(currentPassword, newPassword);
+      console.log('useAdminAuth: Password changed successfully');
+      
+      // After password change, all sessions are invalidated
+      // User will need to login again
+      setSession(null);
+      setAuthState('unauthenticated');
+      
+      logger.info('Admin password changed, session cleared');
+    } catch (error: any) {
+      console.error('useAdminAuth: Password change error:', error);
+      logger.error('Admin password change error');
+      throw error;
+    }
+  };
+
   const logout = async () => {
     console.log('useAdminAuth: Logging out...');
     setAuthState('loading');
@@ -95,6 +115,7 @@ export const useAdminAuth = () => {
     isLoading,
     authState,
     login,
-    logout
+    logout,
+    changePassword
   };
 };

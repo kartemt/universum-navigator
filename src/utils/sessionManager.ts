@@ -89,6 +89,41 @@ export class SessionManager {
   }
 
   /**
+   * Change admin password
+   */
+  static async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    try {
+      console.log('SessionManager: Changing password...');
+      
+      const { data, error } = await supabase.functions.invoke('change-admin-password', {
+        body: { currentPassword, newPassword },
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (error) {
+        console.error('SessionManager: Password change function error:', error);
+        throw new Error('Failed to change password');
+      }
+
+      if (data?.success) {
+        console.log('SessionManager: Password changed successfully');
+        // Password change invalidates all sessions, so clear current session
+        this.currentSession = null;
+        this.isInitialized = false;
+        logger.info('Admin password changed successfully');
+      } else {
+        console.warn('SessionManager: Password change failed:', data?.error);
+        throw new Error(data?.error || 'Failed to change password');
+      }
+    } catch (error: any) {
+      console.error('SessionManager: Password change error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Destroy session and clear cookie
    */
   static async destroySession(): Promise<void> {
