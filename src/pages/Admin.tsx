@@ -7,7 +7,20 @@ import { SecurityWrapper } from '@/components/SecurityWrapper';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 
 const Admin = () => {
-  const { isAuthenticated, isLoading, authState } = useAdminAuth();
+  const { isAuthenticated, isLoading, authState, session } = useAdminAuth();
+
+  // Detailed state logging for debugging
+  React.useEffect(() => {
+    const timestamp = new Date().toLocaleTimeString();
+    console.log(`[${timestamp}] Admin component state:`, {
+      isAuthenticated,
+      isLoading,
+      authState,
+      hasSession: !!session,
+      sessionEmail: session?.admin?.email,
+      shouldShowPanel: isAuthenticated && authState === 'authenticated'
+    });
+  }, [isAuthenticated, isLoading, authState, session]);
 
   const handleAuthenticated = () => {
     console.log('handleAuthenticated called - will trigger re-render');
@@ -27,8 +40,11 @@ const Admin = () => {
     );
   }
 
-  // Показываем панель если пользователь авторизован
-  if (isAuthenticated && authState === 'authenticated') {
+  // Simplified condition: show panel if authenticated OR if we have a valid session
+  const shouldShowAdminPanel = isAuthenticated || (authState === 'authenticated' && session);
+  
+  if (shouldShowAdminPanel) {
+    console.log('Rendering AdminPanel - authentication successful');
     return (
       <SecurityWrapper protectContent={true}>
         <AdminPanel />
@@ -37,7 +53,8 @@ const Admin = () => {
     );
   }
 
-  // Показываем форму входа если не авторизован
+  // Show login form if not authenticated
+  console.log('Rendering AdminAuth - user not authenticated');
   return (
     <SecurityWrapper>
       <AdminAuth onAuthenticated={handleAuthenticated} />

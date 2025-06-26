@@ -86,6 +86,11 @@ export class SessionManager {
         this.addDebugLog(`Session created successfully for: ${data.session.admin.email}`);
         this.currentSession = data.session;
         this.isInitialized = true;
+        
+        // Verify session is valid immediately after creation
+        const isValid = this.isSessionValid();
+        this.addDebugLog(`Session validity check after creation: ${isValid}`);
+        
         logger.info('Secure admin session created', { email });
         return data.session;
       } else {
@@ -183,12 +188,15 @@ export class SessionManager {
    */
   static isSessionValid(): boolean {
     if (!this.currentSession) {
+      this.addDebugLog('Session validation failed: no session');
       return false;
     }
     
     const expiresAt = new Date(this.currentSession.expiresAt).getTime();
     const now = Date.now();
     const isValid = now < expiresAt;
+    
+    this.addDebugLog(`Session validation: expires=${new Date(expiresAt).toLocaleTimeString()}, now=${new Date(now).toLocaleTimeString()}, valid=${isValid}`);
     
     if (!isValid) {
       this.addDebugLog('Session expired');

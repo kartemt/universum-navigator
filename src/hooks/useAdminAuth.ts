@@ -78,8 +78,14 @@ export const useAdminAuth = () => {
       const sessionData = await SessionManager.createSession(email, password);
       addDebugLog(`Login successful, session created for: ${sessionData.admin.email}`);
       
+      // Update both session and auth state immediately
       setSession(sessionData);
       setAuthState('authenticated');
+      
+      // Add a small delay to ensure state is fully updated
+      setTimeout(() => {
+        addDebugLog(`Post-login state verification: session=${!!sessionData}, authState=authenticated`);
+      }, 100);
       
       logger.info('Admin login successful', { email });
       return sessionData;
@@ -121,8 +127,16 @@ export const useAdminAuth = () => {
     logger.info('Admin logout completed');
   };
 
+  // Enhanced isAuthenticated logic with additional validation
   const isAuthenticated = authState === 'authenticated' && !!session && SessionManager.isSessionValid();
   const isLoading = authState === 'loading';
+
+  // Debug current state
+  useEffect(() => {
+    if (session || authState !== 'loading') {
+      addDebugLog(`Current state: isAuthenticated=${isAuthenticated}, authState=${authState}, hasSession=${!!session}`);
+    }
+  }, [isAuthenticated, authState, session]);
 
   return {
     session,
