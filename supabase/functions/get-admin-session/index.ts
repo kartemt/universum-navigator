@@ -5,8 +5,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-csrf-token',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cookie',
   'Access-Control-Allow-Credentials': 'true',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
 };
 
 const securityHeaders = {
@@ -31,29 +32,46 @@ if (!supabaseUrl || !serviceKey) {
 const supabase = createClient(supabaseUrl, serviceKey);
 
 function parseSessionCookie(cookieHeader: string | null): string | null {
-  if (!cookieHeader) return null;
+  console.log('Raw cookie header:', cookieHeader);
+  
+  if (!cookieHeader) {
+    console.log('No cookie header found');
+    return null;
+  }
   
   const cookies = cookieHeader.split(';').map(c => c.trim());
+  console.log('Parsed cookies:', cookies);
+  
   const sessionCookie = cookies.find(c => c.startsWith('admin_session='));
+  console.log('Session cookie found:', sessionCookie);
   
   return sessionCookie ? sessionCookie.split('=')[1] : null;
 }
 
 serve(async (req) => {
+  console.log('=== GET SESSION REQUEST ===');
+  console.log('Method:', req.method);
+  console.log('URL:', req.url);
+  
   if (req.method === 'OPTIONS') {
+    console.log('CORS preflight for get-session handled');
     return new Response(null, { headers: allHeaders });
   }
 
   try {
-    console.log('Get admin session request received');
+    console.log('Processing get admin session request...');
+    
+    // Детальное логирование всех заголовков
+    const headers = Object.fromEntries(req.headers.entries());
+    console.log('All request headers:', headers);
     
     const cookieHeader = req.headers.get('cookie');
     const sessionToken = parseSessionCookie(cookieHeader);
     
-    console.log('Session token found:', !!sessionToken);
+    console.log('Session token extracted:', !!sessionToken);
     
     if (!sessionToken) {
-      console.log('No session token in cookies');
+      console.log('No session token in cookies - returning 401');
       return new Response(JSON.stringify({ error: 'No session found' }), {
         status: 401,
         headers: { ...allHeaders, 'Content-Type': 'application/json' },
@@ -61,6 +79,7 @@ serve(async (req) => {
     }
 
     // Проверяем сессию
+    console.log('Checking session in database...');
     let session;
     try {
       const { data, error: sessionError } = await supabase
@@ -69,6 +88,8 @@ serve(async (req) => {
         .eq('session_token', sessionToken)
         .gt('expires_at', new Date().toISOString())
         .single();
+
+      console.log('Session query result:', { data: !!data, error: sessionError?.message });
 
       if (sessionError || !data) {
         console.log('Invalid or expired session:', sessionError?.message);
@@ -89,6 +110,7 @@ serve(async (req) => {
     }
 
     // Получаем данные админа
+    console.log('Fetching admin data...');
     let admin;
     try {
       const { data, error: adminError } = await supabase
@@ -115,6 +137,7 @@ serve(async (req) => {
       });
     }
 
+    console.log('Session successfully restored for:', admin.email);
     return new Response(JSON.stringify({ 
       session: {
         sessionToken: sessionToken,

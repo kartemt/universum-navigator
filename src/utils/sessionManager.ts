@@ -13,6 +13,7 @@ interface SessionData {
 export class SessionManager {
   private static currentSession: SessionData | null = null;
   private static isInitialized = false;
+  private static initializationPromise: Promise<SessionData | null> | null = null;
 
   // Debug logging helper - only when needed
   private static addDebugLog(message: string) {
@@ -26,11 +27,26 @@ export class SessionManager {
    * Initialize session from secure cookie via server
    */
   static async initializeSession(): Promise<SessionData | null> {
+    // Предотвращаем множественную инициализацию
+    if (this.initializationPromise) {
+      this.addDebugLog('Initialization already in progress, waiting...');
+      return this.initializationPromise;
+    }
+
     if (this.isInitialized) {
       this.addDebugLog(`Already initialized, returning cached session: ${!!this.currentSession}`);
       return this.currentSession;
     }
 
+    // Создаем promise для инициализации
+    this.initializationPromise = this.performInitialization();
+    const result = await this.initializationPromise;
+    this.initializationPromise = null;
+    
+    return result;
+  }
+
+  private static async performInitialization(): Promise<SessionData | null> {
     try {
       this.addDebugLog('Initializing session...');
       
@@ -106,6 +122,7 @@ export class SessionManager {
       if (data?.success && data?.session) {
         this.addDebugLog(`Session created successfully for: ${data.session.admin.email}`);
         this.currentSession = data.session;
+        this.isInitialized = true; // Помечаем как инициализированный после успешного создания
         logger.info('Secure admin session created', { email });
         return data.session;
       } else {
@@ -189,6 +206,7 @@ export class SessionManager {
     
     this.currentSession = null;
     this.isInitialized = false;
+    this.initializationPromise = null; // Сбрасываем promise инициализации
   }
 
   /**
@@ -225,5 +243,6 @@ export class SessionManager {
     this.addDebugLog('Resetting session manager');
     this.currentSession = null;
     this.isInitialized = false;
+    this.initializationPromise = null;
   }
 }

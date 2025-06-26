@@ -25,11 +25,20 @@ export const useAdminAuth = () => {
   };
 
   useEffect(() => {
+    let isMounted = true; // Флаг для предотвращения обновлений после unmount
+    
     const initializeAuth = async () => {
       try {
         addDebugLog('Initializing authentication...');
         
         const existingSession = await SessionManager.initializeSession();
+        
+        // Проверяем, что компонент еще mounted
+        if (!isMounted) {
+          addDebugLog('Component unmounted, skipping state update');
+          return;
+        }
+        
         addDebugLog(`Session initialization result: ${existingSession ? 'session found' : 'no session'}`);
         
         if (existingSession && SessionManager.isSessionValid()) {
@@ -46,6 +55,9 @@ export const useAdminAuth = () => {
       } catch (error) {
         addDebugLog(`Failed to initialize session: ${error}`);
         console.error('useAdminAuth: Failed to initialize session:', error);
+        
+        if (!isMounted) return;
+        
         setSession(null);
         setAuthState('unauthenticated');
         logger.error('Failed to initialize secure session');
@@ -53,7 +65,12 @@ export const useAdminAuth = () => {
     };
 
     initializeAuth();
-  }, []);
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, []); // Пустой массив зависимостей - выполняется только один раз
 
   const login = async (email: string, password: string) => {
     try {
