@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { AdminPanel } from '@/components/AdminPanel';
 import { AdminAuth } from '@/components/AdminAuth';
 import { ScrollToTop } from '@/components/ScrollToTop';
@@ -8,23 +8,10 @@ import { useAdminAuth } from '@/hooks/useAdminAuth';
 
 const Admin = () => {
   const { isAuthenticated, isLoading, authState } = useAdminAuth();
-  const [showPanel, setShowPanel] = useState(false);
-
-  // Отслеживаем изменения аутентификации
-  useEffect(() => {
-    console.log('Admin: Auth state changed:', { isAuthenticated, authState, showPanel });
-    if (isAuthenticated && authState === 'authenticated') {
-      console.log('Setting showPanel to true');
-      setShowPanel(true);
-    } else if (authState === 'unauthenticated') {
-      console.log('Setting showPanel to false');
-      setShowPanel(false);
-    }
-  }, [isAuthenticated, authState]);
 
   const handleAuthenticated = () => {
-    console.log('handleAuthenticated called');
-    setShowPanel(true);
+    console.log('handleAuthenticated called - will trigger re-render');
+    // Компонент автоматически перерендерится когда useAdminAuth обновит состояние
   };
 
   if (isLoading) {
@@ -40,8 +27,8 @@ const Admin = () => {
     );
   }
 
-  // Показываем панель если авторизован или showPanel установлен
-  if ((isAuthenticated && authState === 'authenticated') || showPanel) {
+  // Показываем панель если пользователь авторизован
+  if (isAuthenticated && authState === 'authenticated') {
     return (
       <SecurityWrapper protectContent={true}>
         <AdminPanel />
@@ -50,6 +37,7 @@ const Admin = () => {
     );
   }
 
+  // Показываем форму входа если не авторизован
   return (
     <SecurityWrapper>
       <AdminAuth onAuthenticated={handleAuthenticated} />

@@ -20,12 +20,12 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
   const { toast } = useToast();
   const { login, isAuthenticated, isLoading, authState } = useAdminAuth();
 
-  // Автоматический переход, если пользователь уже авторизован
+  // Автоматический переход при успешной аутентификации
   useEffect(() => {
     console.log('AdminAuth: Auth state changed:', { isAuthenticated, authState });
     if (isAuthenticated && authState === 'authenticated') {
       console.log('User is authenticated, calling onAuthenticated');
-      setTimeout(() => onAuthenticated(), 100);
+      onAuthenticated();
     }
   }, [isAuthenticated, authState, onAuthenticated]);
 
@@ -54,12 +54,6 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
         description: 'Добро пожаловать в админ-панель УниверсУм',
       });
 
-      // Принудительный вызов onAuthenticated с задержкой
-      setTimeout(() => {
-        console.log('Calling onAuthenticated after delay');
-        onAuthenticated();
-      }, 500);
-
     } catch (error: any) {
       console.error('Admin authentication failed:', error);
       logger.error('Admin authentication failed', { email: email.trim() });
@@ -86,14 +80,14 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
     }
   };
 
-  // Если загружается или уже авторизован, показываем загрузку
-  if (isLoading || isAuthenticated) {
+  // Показывать загрузку во время инициализации или аутентификации
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-universum-gradient flex items-center justify-center p-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-white">
-            {isLoading ? 'Проверка сессии...' : 'Переход в админ-панель...'}
+            {authState === 'loading' ? 'Проверка сессии...' : 'Переход в админ-панель...'}
           </p>
         </div>
       </div>
