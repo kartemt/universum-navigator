@@ -17,17 +17,33 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string[]>([]);
   const { toast } = useToast();
   const { login, isAuthenticated, isLoading, authState } = useAdminAuth();
 
+  // Debug logging helper
+  const addDebugLog = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const logMessage = `[${timestamp}] ${message}`;
+    console.log('DEBUG:', logMessage);
+    setDebugInfo(prev => [...prev.slice(-10), logMessage]); // Keep last 10 logs
+  };
+
   // Автоматический переход при успешной аутентификации
   useEffect(() => {
-    console.log('AdminAuth: Auth state changed:', { isAuthenticated, authState });
+    addDebugLog(`Auth state changed: isAuthenticated=${isAuthenticated}, authState=${authState}`);
+    
     if (isAuthenticated && authState === 'authenticated') {
-      console.log('User is authenticated, calling onAuthenticated');
+      addDebugLog('User is authenticated, calling onAuthenticated');
       onAuthenticated();
     }
   }, [isAuthenticated, authState, onAuthenticated]);
+
+  // Debug info on mount
+  useEffect(() => {
+    addDebugLog('AdminAuth component mounted');
+    addDebugLog(`Initial state: isAuthenticated=${isAuthenticated}, authState=${authState}, isLoading=${isLoading}`);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,12 +58,16 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
     }
 
     setIsSubmitting(true);
-    console.log('Starting login process with email:', email.trim());
+    addDebugLog(`Starting login process with email: ${email.trim()}`);
 
     try {
-      console.log('Attempting login...');
+      addDebugLog('Calling login function...');
       const sessionData = await login(email.trim(), password);
-      console.log('Login successful, session data:', sessionData);
+      addDebugLog(`Login successful, session data received: ${JSON.stringify({
+        sessionToken: !!sessionData.sessionToken,
+        expiresAt: sessionData.expiresAt,
+        adminEmail: sessionData.admin.email
+      })}`);
       
       toast({
         title: 'Доступ разрешен',
@@ -55,6 +75,7 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
       });
 
     } catch (error: any) {
+      addDebugLog(`Login error: ${error.message}`);
       console.error('Admin authentication failed:', error);
       logger.error('Admin authentication failed', { email: email.trim() });
       
@@ -82,6 +103,7 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
 
   // Показывать загрузку во время инициализации или аутентификации
   if (isLoading) {
+    addDebugLog(`Showing loading state: authState=${authState}`);
     return (
       <div className="min-h-screen bg-universum-gradient flex items-center justify-center p-4">
         <div className="text-center">
@@ -89,6 +111,16 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
           <p className="text-white">
             {authState === 'loading' ? 'Проверка сессии...' : 'Переход в админ-панель...'}
           </p>
+          {debugInfo.length > 0 && (
+            <details className="mt-4 text-left bg-black/20 p-2 rounded text-xs">
+              <summary className="cursor-pointer text-white/80">Debug Info</summary>
+              <div className="mt-2 space-y-1">
+                {debugInfo.map((log, index) => (
+                  <div key={index} className="text-white/60 font-mono">{log}</div>
+                ))}
+              </div>
+            </details>
+          )}
         </div>
       </div>
     );
@@ -192,6 +224,20 @@ export const AdminAuth = ({ onAuthenticated }: AdminAuthProps) => {
               </div>
             </div>
           </div>
+
+          {/* Debug panel for development */}
+          {debugInfo.length > 0 && (
+            <details className="mt-4 text-left">
+              <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800">
+                Debug Information ({debugInfo.length} logs)
+              </summary>
+              <div className="mt-2 max-h-40 overflow-y-auto bg-gray-50 p-2 rounded text-xs space-y-1 border">
+                {debugInfo.map((log, index) => (
+                  <div key={index} className="text-gray-700 font-mono break-all">{log}</div>
+                ))}
+              </div>
+            </details>
+          )}
         </CardContent>
       </Card>
     </div>
