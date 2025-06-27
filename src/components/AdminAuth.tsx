@@ -7,9 +7,10 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Lock, Loader2, Rocket, Shield, AlertTriangle } from 'lucide-react';
 import { logger } from '@/utils/logger';
+import { SessionData } from '@/utils/session/types';
 
 interface AdminAuthProps {
-  onLogin: (email: string, password: string) => Promise<void>;
+  onLogin: (email: string, password: string) => Promise<SessionData>;
   isLoading: boolean;
 }
 
