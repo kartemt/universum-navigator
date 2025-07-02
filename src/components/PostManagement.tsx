@@ -1,4 +1,21 @@
 
+/*
+ * Компонент управления постами в админ-панели УниверсУм
+ * 
+ * Назначение:
+ * - Отображение списка постов с их текущей классификацией
+ * - Редактирование принадлежности постов к разделам и типам материалов
+ * - Автоматическая классификация по хештегам
+ * - Фильтрация и поиск постов
+ * 
+ * Основные функции:
+ * 1. Загрузка постов, разделов и типов материалов из БД
+ * 2. Отображение в таблице с возможностью фильтрации
+ * 3. Редактирование классификации через модальное окно
+ * 4. Сохранение изменений с использованием админских прав
+ */
+
+// # 1. Импорт библиотек и компонентов
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +28,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Search, Edit, Hash, ExternalLink, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import { SessionManager } from '@/utils/sessionManager';
+import { createClient } from '@supabase/supabase-js';
 
+// # 2. Определение типов данных
 interface Post {
   id: string;
   title: string;
@@ -42,6 +62,7 @@ interface MaterialType {
 }
 
 export const PostManagement = () => {
+  // # 3. Инициализация состояний компонента
   const [posts, setPosts] = useState<Post[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
   const [materialTypes, setMaterialTypes] = useState<MaterialType[]>([]);
@@ -57,10 +78,12 @@ export const PostManagement = () => {
   const [debugInfo, setDebugInfo] = useState<string>('');
   const { toast } = useToast();
 
+  // # 4. Загрузка данных при инициализации компонента
   useEffect(() => {
     loadAllData();
   }, []);
 
+  // # 5. Основная функция загрузки всех данных
   const loadAllData = async () => {
     setIsLoading(true);
     setError(null);
@@ -70,7 +93,7 @@ export const PostManagement = () => {
       console.log('🔍 Начинаем загрузку данных...');
       setDebugInfo('Подключение к базе данных...');
 
-      // Шаг 1: Проверяем базовые таблицы
+      // Загружаем базовые данные (посты, разделы, типы материалов)
       console.log('📊 Загружаем базовые данные...');
       
       const { data: postsData, error: postsError } = await supabase
@@ -116,7 +139,7 @@ export const PostManagement = () => {
       setMaterialTypes(materialTypesData || []);
       setDebugInfo(`Загружено: ${postsData?.length || 0} постов, ${sectionsData?.length || 0} разделов, ${materialTypesData?.length || 0} типов`);
 
-      // Если нет постов, завершаем
+      // Если нет постов, завершаем загрузку
       if (!postsData || postsData.length === 0) {
         console.log('ℹ️ Постов не найдено');
         setPosts([]);
@@ -125,7 +148,7 @@ export const PostManagement = () => {
         return;
       }
 
-      // Шаг 2: Загружаем связи для постов
+      // # 6. Загрузка связей для каждого поста
       console.log('🔗 Загружаем связи постов...');
       setDebugInfo('Загружаем связи разделов и типов материалов...');
 
@@ -134,7 +157,7 @@ export const PostManagement = () => {
           console.log(`📝 Обрабатываем пост ${index + 1}/${postsData.length}: ${post.title}`);
           
           try {
-            // Загружаем разделы поста
+            // Загружаем разделы поста через связующую таблицу
             const { data: postSections, error: sectionsError } = await supabase
               .from('post_sections')
               .select(`
@@ -149,7 +172,7 @@ export const PostManagement = () => {
               console.warn(`⚠️ Ошибка загрузки разделов для поста ${post.id}:`, sectionsError);
             }
 
-            // Загружаем типы материалов поста
+            // Загружаем типы материалов поста через связующую таблицу
             const { data: postMaterialTypes, error: typesError } = await supabase
               .from('post_material_types')
               .select(`
@@ -164,7 +187,7 @@ export const PostManagement = () => {
               console.warn(`⚠️ Ошибка загрузки типов для поста ${post.id}:`, typesError);
             }
 
-            // Формируем результат
+            // Формируем итоговый объект поста с связями
             const sections = (postSections || []).map(ps => ps.sections).filter(Boolean);
             const material_types = (postMaterialTypes || []).map(pmt => pmt.material_types).filter(Boolean);
 
@@ -205,12 +228,12 @@ export const PostManagement = () => {
     }
   };
 
-  // Функция для автоматической классификации поста по хештегам
+  // # 7. Функция автоматической классификации по хештегам
   const autoClassifyPost = (post: Post) => {
     const autoSections: string[] = [];
     const autoMaterialTypes: string[] = [];
 
-    // Классификация по разделам
+    // Проверяем соответствие хештегов поста хештегам разделов
     sections.forEach(section => {
       const hasMatchingHashtag = section.hashtags.some(sectionTag =>
         post.hashtags.some(postTag => 
@@ -222,7 +245,7 @@ export const PostManagement = () => {
       }
     });
 
-    // Классификация по типам материалов
+    // Проверяем соответствие хештегов поста хештегам типов материалов
     materialTypes.forEach(type => {
       const hasMatchingHashtag = type.hashtags.some(typeTag =>
         post.hashtags.some(postTag => 
@@ -237,6 +260,7 @@ export const PostManagement = () => {
     return { autoSections, autoMaterialTypes };
   };
 
+  // # 8. Фильтрация постов по критериям поиска
   const filteredPosts = posts.filter(post => {
     const matchesSearch = !searchTerm || 
       post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -251,6 +275,7 @@ export const PostManagement = () => {
     return matchesSearch && matchesSection && matchesMaterialType;
   });
 
+  // # 9. Открытие диалога редактирования с предварительной классификацией
   const openEditDialog = (post: Post) => {
     const { autoSections, autoMaterialTypes } = autoClassifyPost(post);
     
@@ -259,6 +284,7 @@ export const PostManagement = () => {
     setSelectedMaterialTypes(post.material_types?.map(mt => mt.id) || autoMaterialTypes);
   };
 
+  // # 10. Управление выбором разделов в диалоге
   const handleSectionToggle = (sectionId: string) => {
     setSelectedSections(prev => 
       prev.includes(sectionId) 
@@ -267,6 +293,7 @@ export const PostManagement = () => {
     );
   };
 
+  // # 11. Управление выбором типов материалов в диалоге
   const handleMaterialTypeToggle = (typeId: string) => {
     setSelectedMaterialTypes(prev => 
       prev.includes(typeId) 
@@ -275,6 +302,7 @@ export const PostManagement = () => {
     );
   };
 
+  // # 12. Сохранение классификации поста (ИСПРАВЛЕННАЯ ФУНКЦИЯ)
   const savePostClassification = async () => {
     if (!editingPost) return;
 
@@ -282,10 +310,32 @@ export const PostManagement = () => {
     try {
       console.log('💾 Сохранение классификации для поста:', editingPost.id);
 
-      // Удаляем старые связи
+      // Получаем текущую админскую сессию для операций DELETE
+      const currentSession = SessionManager.getCurrentSession();
+      if (!currentSession) {
+        throw new Error('Нет активной админской сессии');
+      }
+
+      console.log('🔑 Используем админскую сессию для операций удаления');
+
+      // Создаем админский клиент с правильными заголовками для DELETE операций
+      const adminSupabase = createClient(
+        'https://gpfsdgrpnlnpjovhufxu.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwZnNkZ3JwbmxucGpvdmh1Znh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAyOTk2MTQsImV4cCI6MjA2NTg3NTYxNH0.1-fuATIN4x7754HajqvGGKLrQ3tkjbxyw7QluoulJ_8',
+        {
+          global: {
+            headers: {
+              'authorization': currentSession.sessionToken
+            }
+          }
+        }
+      );
+
+      // Удаляем старые связи с использованием админского клиента
+      console.log('🗑️ Удаляем старые связи разделов и типов');
       const [sectionsDelete, typesDelete] = await Promise.all([
-        supabase.from('post_sections').delete().eq('post_id', editingPost.id),
-        supabase.from('post_material_types').delete().eq('post_id', editingPost.id)
+        adminSupabase.from('post_sections').delete().eq('post_id', editingPost.id),
+        adminSupabase.from('post_material_types').delete().eq('post_id', editingPost.id)
       ]);
 
       if (sectionsDelete.error) {
@@ -298,10 +348,13 @@ export const PostManagement = () => {
         throw typesDelete.error;
       }
 
-      // Добавляем новые связи
+      console.log('✅ Старые связи успешно удалены');
+
+      // Добавляем новые связи (используем обычный клиент, так как INSERT работает)
       const insertPromises = [];
 
       if (selectedSections.length > 0) {
+        console.log('➕ Добавляем новые связи с разделами:', selectedSections);
         const sectionInserts = selectedSections.map(sectionId => ({
           post_id: editingPost.id,
           section_id: sectionId
@@ -313,6 +366,7 @@ export const PostManagement = () => {
       }
 
       if (selectedMaterialTypes.length > 0) {
+        console.log('➕ Добавляem новые связи с типами материалов:', selectedMaterialTypes);
         const typeInserts = selectedMaterialTypes.map(typeId => ({
           post_id: editingPost.id,
           material_type_id: typeId
@@ -333,13 +387,15 @@ export const PostManagement = () => {
         }
       }
 
+      console.log('🎉 Классификация поста успешно обновлена');
+
       toast({
         title: "Успешно",
         description: "Классификация поста обновлена",
       });
 
       setEditingPost(null);
-      loadAllData(); // Перезагружаем данные
+      loadAllData(); // Перезагружаем данные для отображения изменений
 
     } catch (error: any) {
       console.error('❌ Ошибка обновления классификации поста:', error);
@@ -353,6 +409,7 @@ export const PostManagement = () => {
     }
   };
 
+  // # 13. Отображение состояния загрузки
   if (isLoading) {
     return (
       <Card>
@@ -367,6 +424,7 @@ export const PostManagement = () => {
     );
   }
 
+  // # 14. Отображение ошибок загрузки
   if (error) {
     return (
       <Card>
@@ -386,8 +444,10 @@ export const PostManagement = () => {
     );
   }
 
+  // # 15. Основной интерфейс управления постами
   return (
     <div className="space-y-6">
+      {/* Панель поиска и фильтрации */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -401,6 +461,7 @@ export const PostManagement = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Поле поиска */}
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
@@ -411,6 +472,7 @@ export const PostManagement = () => {
               />
             </div>
             
+            {/* Фильтр по разделам */}
             <Select value={selectedSection} onValueChange={setSelectedSection}>
               <SelectTrigger>
                 <SelectValue placeholder="Фильтр по разделу" />
@@ -425,6 +487,7 @@ export const PostManagement = () => {
               </SelectContent>
             </Select>
 
+            {/* Фильтр по типам материалов */}
             <Select value={selectedMaterialType} onValueChange={setSelectedMaterialType}>
               <SelectTrigger>
                 <SelectValue placeholder="Фильтр по типу материала" />
@@ -446,6 +509,7 @@ export const PostManagement = () => {
         </CardContent>
       </Card>
 
+      {/* Таблица постов */}
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -472,12 +536,15 @@ export const PostManagement = () => {
                 ) : (
                   filteredPosts.map(post => (
                     <TableRow key={post.id}>
+                      {/* Колонка заголовка и даты */}
                       <TableCell className="max-w-xs">
                         <div className="truncate font-medium">{post.title}</div>
                         <div className="text-xs text-gray-500">
                           {new Date(post.published_at).toLocaleDateString('ru-RU')}
                         </div>
                       </TableCell>
+
+                      {/* Колонка разделов */}
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {post.sections?.map(section => (
@@ -490,6 +557,8 @@ export const PostManagement = () => {
                           )}
                         </div>
                       </TableCell>
+
+                      {/* Колонка типов материалов */}
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {post.material_types?.map(type => (
@@ -502,6 +571,8 @@ export const PostManagement = () => {
                           )}
                         </div>
                       </TableCell>
+
+                      {/* Колонка хештегов */}
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {post.hashtags?.slice(0, 3).map(hashtag => (
@@ -515,8 +586,11 @@ export const PostManagement = () => {
                           )}
                         </div>
                       </TableCell>
+
+                      {/* Колонка действий */}
                       <TableCell>
                         <div className="flex gap-2">
+                          {/* Кнопка редактирования */}
                           <Dialog>
                             <DialogTrigger asChild>
                               <Button 
@@ -527,16 +601,20 @@ export const PostManagement = () => {
                                 <Edit className="h-4 w-4" />
                               </Button>
                             </DialogTrigger>
+
+                            {/* Модальное окно редактирования */}
                             <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                               <DialogHeader>
                                 <DialogTitle>Редактировать классификацию</DialogTitle>
                               </DialogHeader>
                               <div className="space-y-4">
+                                {/* Заголовок поста */}
                                 <div>
                                   <h4 className="font-medium mb-2">Заголовок:</h4>
                                   <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">{editingPost?.title}</p>
                                 </div>
                                 
+                                {/* Выбор разделов */}
                                 <div>
                                   <h4 className="font-medium mb-2">Разделы:</h4>
                                   <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto border rounded p-3 bg-gray-50">
@@ -558,6 +636,7 @@ export const PostManagement = () => {
                                   </div>
                                 </div>
 
+                                {/* Выбор типов материалов */}
                                 <div>
                                   <h4 className="font-medium mb-2">Типы материалов:</h4>
                                   <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded p-3 bg-gray-50">
@@ -579,6 +658,7 @@ export const PostManagement = () => {
                                   </div>
                                 </div>
 
+                                {/* Кнопки управления */}
                                 <div className="flex justify-end gap-2 pt-4 border-t">
                                   <Button variant="outline" onClick={() => setEditingPost(null)}>
                                     Отмена
@@ -598,6 +678,7 @@ export const PostManagement = () => {
                             </DialogContent>
                           </Dialog>
                           
+                          {/* Кнопка перехода к посту в Telegram */}
                           <Button
                             variant="outline"
                             size="sm"
