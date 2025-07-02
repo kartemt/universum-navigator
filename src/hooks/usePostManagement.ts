@@ -1,4 +1,3 @@
-
 /*
  * Хук для управления данными постов в админ-панели
  * 
@@ -225,7 +224,7 @@ export const usePostManagement = () => {
 
       console.log('🔑 Используем админскую сессию для операций удаления');
 
-      // Создаем админский клиент для DELETE операций
+      // Создаем админский клиент для всех операций с правильной авторизацией
       const adminSupabase = createClient(
         'https://gpfsdgrpnlnpjovhufxu.supabase.co',
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwZnNkZ3JwbmxucGpvdmh1Znh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAyOTk2MTQsImV4cCI6MjA2NTg3NTYxNH0.1-fuATIN4x7754HajqvGGKLrQ3tkjbxyw7QluoulJ_8',
@@ -257,7 +256,7 @@ export const usePostManagement = () => {
 
       console.log('✅ Старые связи успешно удалены');
 
-      // Добавляем новые связи
+      // Добавляем новые связи используя adminSupabase
       const insertPromises = [];
 
       if (selectedSections.length > 0) {
@@ -268,7 +267,7 @@ export const usePostManagement = () => {
         }));
         
         insertPromises.push(
-          supabase.from('post_sections').insert(sectionInserts)
+          adminSupabase.from('post_sections').insert(sectionInserts)
         );
       }
 
@@ -280,7 +279,7 @@ export const usePostManagement = () => {
         }));
         
         insertPromises.push(
-          supabase.from('post_material_types').insert(typeInserts)
+          adminSupabase.from('post_material_types').insert(typeInserts)
         );
       }
 
